@@ -94,7 +94,13 @@ static constexpr U_mm couplerToBowden = 3.5_mm; /// FINDA Coupler screw to bowde
 // Min, max and default bowden length setup
 static constexpr U_mm defaultBowdenLength = 360.0_mm; /// ~360.0_mm - Default Bowden length.
 static constexpr U_mm minimumBowdenLength = 341.0_mm; /// ~341.0_mm - Minimum bowden length.
+#ifdef NT_BOXTURTLE
+/// Ninja Turtle: Box Turtle installs often run a long hub-to-toolhead PTFE (AFC default afc_bowden_length 1725 mm).
+/// Whether the printer accepts a bowden length above 1000 mm is UNVERIFIED (Buddy side).
+static constexpr U_mm maximumBowdenLength = 2000.0_mm;
+#else
 static constexpr U_mm maximumBowdenLength = 1000.0_mm; /// ~1000.0_mm - Maximum bowden length.
+#endif
 static_assert(minimumBowdenLength.v <= defaultBowdenLength.v);
 static_assert(maximumBowdenLength.v > defaultBowdenLength.v);
 

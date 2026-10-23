@@ -27,8 +27,9 @@ Flashing MCUs (later phases) also runs on the Mac; builds stay in the container.
 
 ## Changes from upstream
 - `src/hal/gpio.h`, `src/hal/usart.h`, `src/pins.h`: `#ifdef NT_STM32` dispatch to `src/hal/stm32/*` / `src/pins_afcpro.h` (AVR/host paths unchanged).
-- `src/config/config.h`: `NT_BOXTURTLE` pulley config (lane motor: 4.65 mm/rev, 2 microsteps ≈ 86 steps/mm, iRun 25).
+- `src/config/config.h`: `NT_BOXTURTLE` pulley config (lane motor: 4.65 mm/rev, 2 microsteps ≈ 86 steps/mm, iRun 25) and maximum bowden 2000 mm.
 - `src/modules/motion.cpp`: `NT_STM32` hooks for the step-timer IRQ (enable/disable/init).
+- New: `src/nt/flash_journal.*` (append-only EEPROM journal for flash; erase only when the sector is full; unit-tested incl. torn writes).
 - New: `src/nt/tmc2209.*` (TMC2209 UART datagrams/register values, unit-tested against Klipper's algorithm).
 - New: `src/nt/virtual_axes.*` (synthesized selector/idler end-stops for virtual axes; used by the AFC-Pro firmware and vmmu).
 - `src/modules/permanent_storage.cpp`: `EEOFFSET` casts via `uintptr_t` (32-bit MCUs).
@@ -43,6 +44,7 @@ motors/sensors/EEPROM simulated (`tools/vmmu/physics.cpp`: stall-guard homing, p
     python3 -I tools/vmmu/smoke.py /dev/ttysNNN [load]
 
 Motion runs at planned feed rates (`tools/vmmu/motion_sim.cpp`, constant velocity): L1 incl. first homing ≈ 9 s.
+`vmmu_bt` is the same simulator compiled with `NT_BOXTURTLE` (the firmware's Box Turtle config); the `loop_bt::*` tests use it.
 Changer model: `--changer mmu3` (default) or `--changer boxturtle` — no selector/idler mechanics (virtual axes, 20x speed so
 homing still sees its end-stop), the idler slot picks which lane motor the pulley axis drives, FINDA = Box Turtle hub sensor.
 Faults: `--fault finda-stuck-off|finda-stuck-on|idler-home-fail|selector-home-fail[:ms]` (`:ms` = auto-clear).
@@ -63,13 +65,13 @@ Soak tests (excluded from `scripts/ci`): `ctest --preset linux -L soak` (100 too
 `ports/afcpro/` — standalone Cortex-M7 build (arm-none-eabi in the dev container):
 - `nt_afcpro.elf/.bin`: upstream application/logic/motion on Box Turtle hardware — 22.8 KB flash, 9.6 KB RAM.
   HAL in `hal_afcpro.cpp` + `src/hal/stm32/`: GPIO, SysTick timebase, TIM2 step timer (2 MHz, same contract as AVR TIMER1),
-  pulley axis routed to the active lane (`nt::SelectLane`, lane = idler slot), virtual selector/idler with synthesized end-stops,
-  HUB = FINDA, EEPROM image in RAM persisted to flash sector 3 when idle, IWDG (~8 s). CMSIS from `third_party/cmsis`.
+  pulley axis routed to the active lane (`nt::UpdateLane` + re-selection at each move start in `SetTMCDir`; lane = idler slot while engaged or partially disengaged), virtual selector/idler with synthesized end-stops,
+  HUB = FINDA, EEPROM image in RAM persisted via `nt::FlashJournal` to flash sector 3 when idle (sector erase only every ~62 saves), IWDG (~8 s). CMSIS from `third_party/cmsis`.
 - TMC2209 per-lane config over bit-banged single-wire UART (`tmc_uart.cpp`, 19200 baud): GCONF/CHOPCONF (with dedge)/IHOLD_IRUN,
-  link verified via IFCNT.
+  link verified via IFCNT; applied once and again only when currents/mode change. USART1 runs with its 8-byte FIFOs.
 - Printer link: USART1 on PB6/PB7 via switch ports SW15/SW14 (115200, IRQ ring buffers). Flash via ROM DFU (`docs/afc-pro-port.md`).
 - Not done (needs hardware/info): lane steps/mm + current verification on hardware, clocks (reset HSI 64 MHz; board has 25 MHz HSE),
-  LEDs, bootloader offset. Untested on hardware; flash erase stalls the CPU ~1-2 s (see hal_afcpro.cpp).
+  RGB LEDs. Untested on hardware; the rare sector erase still stalls the CPU ~1-2 s (see hal_afcpro.cpp).
 Hardware mapping: `docs/afc-pro-port.md`.
 
 ## Phase 5 bridge (QT Py SAMD21)

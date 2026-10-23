@@ -3,8 +3,7 @@
 set(STUBS ${CMAKE_SOURCE_DIR}/tests/unit/modules/stubs)
 set(LSTUBS ${CMAKE_SOURCE_DIR}/tests/unit/logic/stubs)
 
-add_executable(
-  vmmu
+set(VMMU_SOURCES
   main.cpp
   posix_serial.cpp
   physics.cpp
@@ -51,12 +50,20 @@ add_executable(
   ${CMAKE_SOURCE_DIR}/src/logic/retract_from_finda.cpp
   ${CMAKE_SOURCE_DIR}/src/logic/unload_to_finda.cpp
   )
+add_executable(vmmu ${VMMU_SOURCES})
 target_compile_definitions(vmmu PRIVATE UNITTEST)
-target_include_directories(
-  vmmu PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/modules ${CMAKE_SOURCE_DIR}/src/hal ${STUBS} ${LSTUBS}
-  )
+
+# vmmu_bt: same simulator built with the Box Turtle firmware config (NT_BOXTURTLE: lane steps/mm, currents, bowden limits)
+add_executable(vmmu_bt ${VMMU_SOURCES})
+target_compile_definitions(vmmu_bt PRIVATE UNITTEST NT_BOXTURTLE)
+foreach(t vmmu vmmu_bt)
+  target_include_directories(
+    ${t} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/modules ${CMAKE_SOURCE_DIR}/src/hal ${STUBS} ${LSTUBS}
+    )
+endforeach()
 if(NOT APPLE)
   target_link_libraries(vmmu PRIVATE util) # openpty
+  target_link_libraries(vmmu_bt PRIVATE util)
 endif()
 
 add_test(NAME vmmu::lineup COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/smoke_test.sh $<TARGET_FILE:vmmu>)

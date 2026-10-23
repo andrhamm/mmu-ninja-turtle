@@ -114,10 +114,10 @@ VS Code users can **Reopen in Container** (`.devcontainer/`). A native macOS bui
 | Layer | What runs | Where |
 |---|---|---|
 | Upstream unit tests | 107 Catch2 tests of protocol, logic and modules | `ctest --preset linux` |
-| Ninja Turtle unit tests | TMC2209 datagrams vs. Klipper reference vectors | `tests/unit/nt` |
+| Ninja Turtle unit tests | TMC2209 datagrams vs. Klipper reference vectors; flash EEPROM journal (incl. power loss mid-save) | `tests/unit/nt` |
 | `vmmu` | Unmodified MMU application on the host with simulated motors/sensors, on a pty, serial device or TCP; fault injection | `tools/vmmu` |
 | `vprinter` | Prusa Buddy's printer-side `ProtocolLogic` (vendored, v6.10.1) with a simulated printer filament sensor; emulates the CORE One extension board's 10 ms reply window | `tools/vprinter` |
-| Closed loop | `vprinter` ⇄ `vmmu`: line-up, idle, tool changes, error → Retry, gate rejection; MMU3 and Box Turtle models | `ctest -R loop` |
+| Closed loop | `vprinter` ⇄ `vmmu`: line-up, idle, tool changes, error → Retry, gate rejection; MMU3 model and `vmmu_bt` (built with the firmware's Box Turtle config) | `ctest -R loop` |
 | Soak (manual) | 100 tool changes, 1 h idle | `ctest --preset linux -L soak` |
 
 Testing against a real printer before any Box Turtle hardware exists: flash the QT Py bridge

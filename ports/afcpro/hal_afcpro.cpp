@@ -12,6 +12,7 @@
 #include "../../src/hal/tmc2130.h"
 #include "../../src/hal/usart.h"
 #include "../../src/hal/watchdog.h"
+#include "../../src/modules/idler.h"
 #include "../../src/modules/motion.h"
 #include "../../src/modules/timebase.h"
 #include "../../src/nt/virtual_axes.h"
@@ -19,6 +20,7 @@
 #include "tmc_uart.h"
 #include "eeprom_flush.h"
 #include "../../src/nt/tmc2209.h"
+#include "../../src/nt/flash_journal.h"
 
 #include <string.h>
 
@@ -27,19 +29,37 @@ namespace nt {
 const hal::gpio::GPIO_pin *volatile pulleyStep = &NC;
 static uint8_t activeLane = noLane;
 static bool pulleyEnabled = false;
+static bool pulleyDir = false; ///< last pulley direction, re-applied to a newly selected lane
 
 static void LaneEnable(uint8_t lane, bool on) {
     if (lane < laneCount) // TMC2209 EN is active low
         hal::gpio::WritePin(LANE_EN[lane], on ? hal::gpio::Level::low : hal::gpio::Level::high);
 }
 
-void SelectLane(uint8_t lane) {
+uint8_t DesiredLane() {
+    // The pulley drives the slot the idler presses; "partially disengaged" still drives it (feed_to_bondtech's
+    // avoid-grind push runs in that state).
+    return (mi::idler.Engaged() || mi::idler.PartiallyDisengaged()) && mi::idler.Slot() < laneCount ? mi::idler.Slot() : noLane;
+}
+
+/// Not reentrant: call with the step ISR masked or from the step ISR itself.
+static void SelectLaneLocked(uint8_t lane) {
+    lane = lane < laneCount ? lane : noLane;
     if (lane == activeLane)
         return;
     LaneEnable(activeLane, false);
-    activeLane = lane < laneCount ? lane : noLane;
+    activeLane = lane;
     pulleyStep = activeLane == noLane ? &NC : &LANE_STEP[activeLane];
+    if (activeLane != noLane)
+        hal::gpio::WritePin(LANE_DIR[activeLane], pulleyDir ? hal::gpio::Level::high : hal::gpio::Level::low);
     LaneEnable(activeLane, pulleyEnabled);
+}
+
+void UpdateLane() {
+    bool wasOn = hal::stm32::StepTimerIrqDisable();
+    SelectLaneLocked(DesiredLane());
+    if (wasOn)
+        hal::stm32::StepTimerIrqEnable(true);
 }
 
 uint8_t ActiveLane() { return activeLane; }
@@ -70,12 +90,21 @@ void SHR16::SetLED(uint16_t led) {
 }
 void SHR16::SetTMCEnabled(uint8_t index, bool ena) {
     if (index == mm::Pulley) {
+        bool wasOn = hal::stm32::StepTimerIrqDisable();
         nt::pulleyEnabled = ena;
         nt::LaneEnable(nt::activeLane, ena);
+        if (wasOn)
+            hal::stm32::StepTimerIrqEnable(true);
     }
 }
+// Called from the step ISR at the start of every pulley move (pulse_gen Step -> TMC2130::SetDir): select the lane the
+// idler has engaged *now*, so a move planned in the same main-loop pass as the idler engage still goes to the right lane.
 void SHR16::SetTMCDir(uint8_t index, bool dir) {
-    if (index == mm::Pulley && nt::activeLane < nt::laneCount)
+    if (index != mm::Pulley)
+        return;
+    nt::pulleyDir = dir;
+    nt::SelectLaneLocked(nt::DesiredLane());
+    if (nt::activeLane < nt::laneCount)
         hal::gpio::WritePin(nt::LANE_DIR[nt::activeLane], dir ? hal::gpio::Level::high : hal::gpio::Level::low);
 }
 void SHR16::Write(uint16_t) {}
@@ -95,16 +124,34 @@ static bool ConfigureLane(uint8_t lane, const MotorParams &params, const MotorCu
     return ok;
 }
 
+// Upstream re-inits the pulley driver (Motion::InitAxis) at the start of every feed/unload. On the AVR that is a fast
+// SPI burst; here it is ~25 ms of bit-banged UART per lane with IRQs masked per byte. So the lanes are configured once
+// and only reconfigured when the requested currents/mode actually change.
+struct LaneCfg {
+    uint8_t iRun, iHold;
+    bool vSense;
+    MotorMode mode;
+    bool operator==(const LaneCfg &o) const { return iRun == o.iRun && iHold == o.iHold && vSense == o.vSense && mode == o.mode; }
+};
+static LaneCfg applied {};
+static bool lanesConfigured = false, lanesOk = false;
+
 bool TMC2130::Init(const MotorParams &params, const MotorCurrents &currents, MotorMode mode) {
     sg_filter_threshold = 1;
     sg_filter_counter = 1;
     initialized = true;
     if (params.axis != mm::Pulley)
         return true;
+    LaneCfg want { currents.iRun, currents.iHold, currents.vSense, mode };
+    if (lanesConfigured && want == applied)
+        return lanesOk;
     nt::TmcUartInit();
     bool ok = true;
     for (uint8_t lane = 0; lane < nt::laneCount; ++lane)
         ok &= ConfigureLane(lane, params, currents, mode);
+    applied = want;
+    lanesConfigured = true;
+    lanesOk = ok;
     return ok; // false -> upstream reports a TMC init error for the pulley
 }
 void TMC2130::SetMode(const MotorParams &params, MotorMode mode) {
@@ -183,7 +230,8 @@ void USART::Init(USART_InitTypeDef *const conf) {
     PinAF7(GPIOB, 7);
     USART1->CR1 = 0;
     USART1->BRR = (usartClock + conf->baudrate / 2) / conf->baudrate;
-    USART1->CR1 = USART_CR1_TE | USART_CR1_UE; // RX enabled later by rx_enable(), like the AVR code
+    // 8-byte FIFOs ride out short IRQ-masked windows (TMC2209 bit-bang, flash programming) without RX overruns
+    USART1->CR1 = USART_CR1_FIFOEN | USART_CR1_TE | USART_CR1_UE; // RX enabled later by rx_enable(), like the AVR code
     NVIC_EnableIRQ(USART1_IRQn);
 }
 void USART::Isr() {
@@ -192,14 +240,17 @@ void USART::Isr() {
         USART1->ICR = USART_ICR_ORECF;
     if (isr & USART_ISR_FE)
         USART1->ICR = USART_ICR_FECF;
-    if (isr & USART_ISR_RXNE_RXFNE)
+    while (USART1->ISR & USART_ISR_RXNE_RXFNE) // drain the RX FIFO
         rx_buf.push(uint8_t(USART1->RDR));
-    if ((USART1->CR1 & USART_CR1_TXEIE_TXFNFIE) && (isr & USART_ISR_TXE_TXFNF)) {
+    if (USART1->CR1 & USART_CR1_TXEIE_TXFNFIE) {
         uint8_t c;
-        if (tx_buf.pop(c))
+        while (USART1->ISR & USART_ISR_TXE_TXFNF) { // fill the TX FIFO
+            if (!tx_buf.pop(c)) {
+                USART1->CR1 &= ~USART_CR1_TXEIE_TXFNFIE;
+                break;
+            }
             USART1->TDR = c;
-        else
-            USART1->CR1 &= ~USART_CR1_TXEIE_TXFNFIE;
+        }
     }
 }
 } // namespace usart
@@ -237,19 +288,64 @@ uint16_t ReadADC(uint8_t) { return 1023; }
 } // namespace adc
 
 namespace eeprom {
-// 2 KB EEPROM image in RAM, persisted to flash sector 3 (0x08060000, excluded from the linker FLASH region).
-// Erased flash reads 0xFF == erased EEPROM, so a blank sector is a valid "factory" image.
-// shortcut: a sector erase stalls the CPU (code runs from the same bank) for ~1-2 s; flush only when the MMU is idle and
-// the printer link is quiet, upgrade to RAM-resident flash routines if the stall causes link timeouts on hardware.
+// 2 KB EEPROM image in RAM, persisted through nt::FlashJournal into flash sector 3 (0x08060000, 128 KB, excluded from
+// the linker FLASH region). Each save appends a slot (~2 KB, a few ms of programming); the sector is erased only when
+// full (~every 62 saves) -- that erase stalls the CPU ~1-2 s (code runs from the same bank), so saves happen only while
+// the MMU is idle. Erased flash == erased EEPROM (0xFF), so a blank sector is a valid factory image.
 EEPROM eeprom;
-static uint8_t EE[EEPROM::End() + 1];
+static uint8_t EE[EEPROM::End() + 1]; // + 1: permanent_storage keeps its layout version at End()
 static bool loaded = false, dirty = false;
 static uint16_t lastWriteMs = 0;
 static constexpr uint32_t sectorAddr = 0x08060000;
+static constexpr uint32_t sectorSize = 128 * 1024;
 static constexpr uint32_t sectorIndex = 3;
+
+static void WaitFlash() {
+    while (FLASH->SR1 & (FLASH_SR_QW | FLASH_SR_BSY)) {
+    }
+}
+static void Unlock() {
+    if (FLASH->CR1 & FLASH_CR_LOCK) {
+        FLASH->KEYR1 = 0x45670123;
+        FLASH->KEYR1 = 0xCDEF89AB;
+    }
+    WaitFlash();
+    FLASH->CCR1 = 0xFFFFFFFF; // clear error flags
+}
+static bool Ok() { return !(FLASH->SR1 & (FLASH_SR_WRPERR | FLASH_SR_PGSERR | FLASH_SR_STRBERR | FLASH_SR_INCERR)); }
+static bool Program(uint32_t off, const uint8_t *d, uint32_t len) {
+    Unlock();
+    FLASH->CR1 |= FLASH_CR_PG;
+    volatile uint32_t *dst = (volatile uint32_t *)(sectorAddr + off);
+    for (uint32_t i = 0; i < len / 4; i += 8) { // one 256-bit flash word per iteration
+        for (uint32_t w = 0; w < 8; ++w) {
+            uint32_t v;
+            memcpy(&v, d + 4 * (i + w), 4);
+            dst[i + w] = v;
+        }
+        __DSB();
+        WaitFlash();
+    }
+    FLASH->CR1 &= ~FLASH_CR_PG;
+    bool ok = Ok();
+    FLASH->CR1 |= FLASH_CR_LOCK;
+    return ok;
+}
+static bool Erase() {
+    Unlock();
+    FLASH->CR1 = (FLASH->CR1 & ~FLASH_CR_SNB) | FLASH_CR_SER | (sectorIndex << FLASH_CR_SNB_Pos);
+    FLASH->CR1 |= FLASH_CR_START;
+    WaitFlash();
+    FLASH->CR1 &= ~FLASH_CR_SER;
+    bool ok = Ok();
+    FLASH->CR1 |= FLASH_CR_LOCK;
+    return ok;
+}
+static nt::FlashJournal journal({ (const uint8_t *)sectorAddr, sectorSize, Program, Erase }, sizeof(EE));
+
 static uint8_t *Mem() {
     if (!loaded) {
-        memcpy(EE, (const void *)sectorAddr, sizeof(EE));
+        journal.Load(EE);
         loaded = true;
     }
     return EE;
@@ -280,39 +376,11 @@ uint16_t EEPROM::ReadWord(addr_t a) {
     return v;
 }
 
-static void WaitFlash() {
-    while (FLASH->SR1 & (FLASH_SR_QW | FLASH_SR_BSY)) {
-    }
-}
-
 bool FlushIfDue(bool idle) {
     if (!dirty || !idle || !mt::timebase.Elapsed(lastWriteMs, 2000))
         return false;
-    uint32_t prim = __get_PRIMASK();
-    __disable_irq();
-    FLASH->KEYR1 = 0x45670123;
-    FLASH->KEYR1 = 0xCDEF89AB;
-    WaitFlash();
-    FLASH->CCR1 = 0xFFFFFFFF; // clear error flags
-    FLASH->CR1 = (FLASH->CR1 & ~FLASH_CR_SNB) | FLASH_CR_SER | (sectorIndex << FLASH_CR_SNB_Pos);
-    FLASH->CR1 |= FLASH_CR_START;
-    WaitFlash();
-    FLASH->CR1 &= ~FLASH_CR_SER;
-    FLASH->CR1 |= FLASH_CR_PG;
-    volatile uint32_t *dst = (volatile uint32_t *)sectorAddr;
-    const uint32_t *src = (const uint32_t *)EE;
-    for (uint32_t i = 0; i < sizeof(EE) / 4; i += 8) { // 256-bit flash words
-        for (uint32_t w = 0; w < 8; ++w)
-            dst[i + w] = src[i + w];
-        __DSB();
-        WaitFlash();
-    }
-    FLASH->CR1 &= ~FLASH_CR_PG;
-    FLASH->CR1 |= FLASH_CR_LOCK;
-    SCB_InvalidateDCache_by_Addr((void *)sectorAddr, sizeof(EE));
-    __set_PRIMASK(prim);
-    dirty = false;
-    return true;
+    dirty = !journal.Save(EE); // keep dirty on a flash error so it is retried later
+    return !dirty;
 }
 } // namespace eeprom
 

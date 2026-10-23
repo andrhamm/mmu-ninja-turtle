@@ -3,6 +3,12 @@
 #   scripts/dev ./scripts/ci     (full build + tests + vmmu smoke, same as CI)
 set -euo pipefail
 cd "$(dirname "$0")/.."
-docker build -q -t ninja-turtle-dev -f docker/Dockerfile docker >/dev/null
+# Tag the image by Dockerfile content: rebuild only when it changes, and remove superseded ninja-turtle-dev tags so
+# old images do not pile up (they helped fill the Docker VM disk once). Other projects images are never touched.
+tag="ninja-turtle-dev:$(shasum -a 256 docker/Dockerfile | cut -c1-12)"
+if ! docker image inspect "$tag" >/dev/null 2>&1; then
+    docker build -q -t "$tag" -f docker/Dockerfile docker >/dev/null
+    docker images ninja-turtle-dev --format '{{.Repository}}:{{.Tag}}' | grep -vx "$tag" | xargs -r docker rmi >/dev/null 2>&1 || true
+fi
 tty=(); [ -t 0 ] && tty=(-it)
-exec docker run --rm "${tty[@]}" -v "$PWD:/work" -w /work ninja-turtle-dev "${@:-bash}"
+exec docker run --rm "${tty[@]}" -v "$PWD:/work" -w /work "$tag" "${@:-bash}"

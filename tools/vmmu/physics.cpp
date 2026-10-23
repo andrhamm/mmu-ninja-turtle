@@ -17,7 +17,11 @@ namespace vmmu {
 namespace physics {
 
 Faults faults;
+#ifdef NT_BOXTURTLE
+Changer changer = Changer::BoxTurtle; // vmmu_bt: Box Turtle config compiled in
+#else
 Changer changer = Changer::MMU3;
+#endif
 
 bool SetChanger(const char *n) {
     if (!strcmp(n, "mmu3"))
@@ -84,7 +88,7 @@ void Step() {
         pulleyInit = true;
     }
     uint8_t s = mi::idler.Slot();
-    if (mi::idler.Engaged() && s < config::toolCount)
+    if ((mi::idler.Engaged() || mi::idler.PartiallyDisengaged()) && s < config::toolCount) // same rule as the AFC-Pro lane router
         tipSteps[s] += p - lastPulley;
     lastPulley = p;
 

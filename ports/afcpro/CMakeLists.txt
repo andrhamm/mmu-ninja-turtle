@@ -38,7 +38,7 @@ set(NT_DEFS NT_STM32 NT_BOXTURTLE STM32H723xx PROJECT_VERSION_MAJOR=${PROJECT_VE
   FW_VERSION_SUFFIX_STR="" FW_VERSION_SUFFIX_SHORT_STR="")
 add_executable(
   nt_afcpro.elf
-  main.cpp hal_afcpro.cpp tmc_uart.cpp ${SRC}/nt/virtual_axes.cpp ${SRC}/nt/tmc2209.cpp
+  main.cpp hal_afcpro.cpp tmc_uart.cpp ${SRC}/nt/virtual_axes.cpp ${SRC}/nt/tmc2209.cpp ${SRC}/nt/flash_journal.cpp
   ${SRC}/application.cpp ${SRC}/registers.cpp
   ${SRC}/modules/buttons.cpp ${SRC}/modules/debouncer.cpp ${SRC}/modules/finda.cpp ${SRC}/modules/fsensor.cpp
   ${SRC}/modules/globals.cpp ${SRC}/modules/idler.cpp ${SRC}/modules/leds.cpp ${SRC}/modules/movable_base.cpp

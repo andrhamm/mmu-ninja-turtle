@@ -1,6 +1,6 @@
 // Bit-banged half-duplex UART to each lane's TMC2209 (AFC-Pro wires one PDN_UART pin per driver, nt::LANE_UART).
-// 19200 baud (TMC2209 auto-bauds; software timing via the DWT cycle counter). Blocking, IRQs masked per byte: only used
-// while motors are idle (driver init / mode / current changes).
+// 19200 baud (TMC2209 auto-bauds; software timing via the DWT cycle counter). Blocking, IRQs masked per byte (~0.5 ms):
+// used at the first pulley init and when currents/mode change (TMC2130::Init caches the applied config).
 #include "stm32h7xx.h"
 #undef CRC
 #include "../../src/pins.h"

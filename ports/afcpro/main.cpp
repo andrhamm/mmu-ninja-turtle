@@ -70,8 +70,8 @@ int main() {
     hu::usart1.rx_enable();
 
     for (;;) {
-        // the pulley drives whichever lane the (virtual) idler has engaged
-        nt::SelectLane(mi::idler.Engaged() ? mi::idler.Slot() : nt::noLane);
+        // the pulley drives whichever lane the (virtual) idler has engaged; moves also re-select at block start (SetTMCDir)
+        nt::UpdateLane();
         mb::buttons.Step();
         ml::leds.Step();
         mf::finda.Step();
