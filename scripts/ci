@@ -4,3 +4,7 @@ set -euo pipefail
 cmake --preset linux
 cmake --build --preset linux
 ctest --preset linux -LE soak
+# AFC-Pro (Cortex-M7) cross-build of the portable core
+cmake -S ports/afcpro -B build/afcpro -G Ninja
+cmake --build build/afcpro
+arm-none-eabi-size -t build/afcpro/libnt_core.a | tail -1

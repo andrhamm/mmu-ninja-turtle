@@ -52,7 +52,7 @@ constexpr const uint16_t eepromBowdenLenMaximum = config::maximumBowdenLength.v;
 
 namespace ee = hal::eeprom;
 
-#define EEOFFSET(x) reinterpret_cast<ee::EEPROM::addr_t>(&(x))
+#define EEOFFSET(x) static_cast<ee::EEPROM::addr_t>(reinterpret_cast<uintptr_t>(&(x))) // via uintptr_t: portable to 32-bit MCUs
 
 void Init() {
     if (ee::EEPROM::ReadByte(ee::EEPROM::End()) != layoutVersion) {

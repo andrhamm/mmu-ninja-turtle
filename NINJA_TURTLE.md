@@ -28,6 +28,7 @@ Docker Desktop on macOS can't hand USB serial devices to containers, so the Mac 
 Flashing MCUs (later phases) also runs on the Mac; builds stay in the container.
 
 ## Changes from upstream
+- `src/modules/permanent_storage.cpp`: `EEOFFSET` casts via `uintptr_t` (32-bit MCUs).
 - `src/application.cpp`: Cut (`K`) requests are rejected when `HasCutter()` is false (weak default `true`; Box Turtle builds/sim override).
 - `tests/unit/modules/protocol/test_protocol.cpp`: test helper read past the end of a `string_view` (caught by GCC 16 assertions).
 
@@ -54,3 +55,7 @@ pty/serial/TCP, with a simulated printer filament sensor. Reports reply latency 
 that reply and RX is flushed before each transmit (Buddy `xbuddy_extension/mmu.cpp`). `vmmu --fault reply-delay=15` proves it
 (negative test `loop::gate_rejects_slow_mmu`). Register-write whitelist not modelled (Buddy only writes whitelisted registers).
 Soak tests (excluded from `scripts/ci`): `ctest --preset linux -L soak` (100 tool changes, 1 h idle).
+
+## AFC-Pro port (Phase 6)
+`ports/afcpro/` — standalone Cortex-M7 build (arm-none-eabi in the dev container). Currently the portable core
+(application, logic, modules) as `libnt_core.a` (~15.8 KB text). Hardware mapping: `docs/afc-pro-port.md`.
