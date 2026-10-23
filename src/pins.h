@@ -1,6 +1,9 @@
 /// @file pins.h
 #pragma once
 #include "hal/gpio.h"
+#ifdef NT_STM32
+#include "pins_afcpro.h" // Ninja Turtle: Box Turtle on AFC-Pro
+#else
 
 /// pin definitions
 static constexpr hal::gpio::GPIO_pin TMC2130_SPI_MISO_PIN = { GPIOB, (1 << 3) };
@@ -28,3 +31,5 @@ static constexpr hal::gpio::GPIO_pin IDLER_SG_PIN = { GPIOF, (1 << 0) };
 static constexpr hal::gpio::GPIO_pin IDLER_STEP_PIN = { GPIOD, (1 << 6) };
 
 static constexpr hal::gpio::GPIO_pin FINDA_PIN = { GPIOF, (1 << 6) }; /// PF6     A1      ADC6/TDI
+
+#endif // NT_STM32

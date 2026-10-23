@@ -8,6 +8,8 @@
 #ifdef __AVR__
 #include <avr/interrupt.h>
 #include <util/atomic.h>
+#elif defined(NT_STM32)
+#include "../hal/stm32/motion_timer.h" // Ninja Turtle STM32 port: step timer IRQ control
 #else
 //#include "../hal/timers.h"
 #endif
@@ -26,6 +28,8 @@ static inline void IsrSetEnabled(bool state) {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { TIMSK1 |= (1 << OCIE1A); }
     else
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { TIMSK1 &= ~(1 << OCIE1A); }
+#elif defined(NT_STM32)
+    hal::stm32::StepTimerIrqEnable(state);
 #endif
 }
 
@@ -37,6 +41,8 @@ static inline bool IsrDisable() {
         TIMSK1 &= ~(1 << OCIE1A);
     }
     return state;
+#elif defined(NT_STM32)
+    return hal::stm32::StepTimerIrqDisable();
 #else
     return false;
 #endif
@@ -149,6 +155,9 @@ static inline void Isr() {
 }
 
 void Init() {
+#ifdef NT_STM32
+    hal::stm32::StepTimerInit();
+#endif
 #ifdef __AVR__
     // TODO: use proper timer abstraction
 

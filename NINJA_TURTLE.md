@@ -28,6 +28,9 @@ Docker Desktop on macOS can't hand USB serial devices to containers, so the Mac 
 Flashing MCUs (later phases) also runs on the Mac; builds stay in the container.
 
 ## Changes from upstream
+- `src/hal/gpio.h`, `src/hal/usart.h`, `src/pins.h`: `#ifdef NT_STM32` dispatch to `src/hal/stm32/*` / `src/pins_afcpro.h` (AVR/host paths unchanged).
+- `src/modules/motion.cpp`: `NT_STM32` hooks for the step-timer IRQ (enable/disable/init).
+- New: `src/nt/virtual_axes.*` (synthesized selector/idler end-stops for virtual axes; used by the AFC-Pro firmware and vmmu).
 - `src/modules/permanent_storage.cpp`: `EEOFFSET` casts via `uintptr_t` (32-bit MCUs).
 - `src/application.cpp`: Cut (`K`) requests are rejected when `HasCutter()` is false (weak default `true`; Box Turtle builds/sim override).
 - `tests/unit/modules/protocol/test_protocol.cpp`: test helper read past the end of a `string_view` (caught by GCC 16 assertions).
@@ -57,5 +60,11 @@ that reply and RX is flushed before each transmit (Buddy `xbuddy_extension/mmu.c
 Soak tests (excluded from `scripts/ci`): `ctest --preset linux -L soak` (100 tool changes, 1 h idle).
 
 ## AFC-Pro port (Phase 6)
-`ports/afcpro/` — standalone Cortex-M7 build (arm-none-eabi in the dev container). Currently the portable core
-(application, logic, modules) as `libnt_core.a` (~15.8 KB text). Hardware mapping: `docs/afc-pro-port.md`.
+`ports/afcpro/` — standalone Cortex-M7 build (arm-none-eabi in the dev container):
+- `nt_afcpro.elf/.bin`: upstream application/logic/motion on Box Turtle hardware — 22.8 KB flash, 9.6 KB RAM.
+  HAL in `hal_afcpro.cpp` + `src/hal/stm32/`: GPIO, SysTick timebase, TIM2 step timer (2 MHz, same contract as AVR TIMER1),
+  pulley axis routed to the active lane (`nt::SelectLane`, lane = idler slot), virtual selector/idler with synthesized end-stops,
+  HUB = FINDA, RAM EEPROM. CMSIS from `third_party/cmsis`.
+- Not done (needs hardware/info): printer-link USART pins, TMC2209 UART config, clocks (runs on reset HSI 64 MHz),
+  flash-backed EEPROM, IWDG, LEDs, bootloader offset. Untested on hardware.
+Hardware mapping: `docs/afc-pro-port.md`.

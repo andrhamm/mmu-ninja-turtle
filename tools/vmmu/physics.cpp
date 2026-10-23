@@ -1,11 +1,12 @@
 // Minimal world model so the unmodified MMU logic can run without hardware:
-// - homing: stall-guard fires after the same travel the upstream unit tests use (tests/unit/logic/stubs/homing.cpp)
+// - homing: stall-guard from src/nt/virtual_axes.cpp (same travel as upstream tests/unit/logic/stubs/homing.cpp)
 // - filament: each slot's tip moves with the pulley while the idler presses that slot; FINDA trips past findaTripMm
 #include "physics.h"
 #include "idler.h"
 #include "motion.h"
 #include "selector.h"
 #include "stub_motion.h"
+#include "../../src/nt/virtual_axes.h"
 #include "../../src/pins.h"
 #include "../../src/hal/gpio.h"
 
@@ -51,35 +52,20 @@ bool SetFault(const char *arg) {
 
 namespace {
 
-struct HomeSim {
-    uint8_t lastState = 0xff;
-    mm::pos_t start = 0;
-    bool fired = false;
-    bool resetPending = false;
-};
-
-HomeSim idlerHome, selectorHome;
+bool stallPending[mm::NUM_AXIS] = {};
 mm::pos_t lastPulley = 0;
 bool pulleyInit = false;
 long double tipSteps[config::toolCount] = {};
 
-int64_t Abs(int64_t v) { return v < 0 ? -v : v; }
-
-void SimHoming(HomeSim &h, mm::Axis axis, uint8_t state, uint32_t fwdSteps, uint32_t backSteps, bool broken) {
-    if (h.resetPending) {
+/// Homing end-stops come from the same synthesizer the AFC-Pro firmware uses (src/nt/virtual_axes.cpp).
+void SimHoming(mm::Axis axis, bool broken) {
+    if (stallPending[axis]) {
         mm::motion.StallGuardReset(axis);
-        h.resetPending = false;
+        stallPending[axis] = false;
     }
-    if (state != h.lastState) {
-        h.lastState = state;
-        h.start = mm::axes[axis].pos;
-        h.fired = false;
-    }
-    uint32_t need = state == mm::MovableBase::HomeForward ? fwdSteps : state == mm::MovableBase::HomeBack ? backSteps : 0;
-    if (need && !broken && !h.fired && Abs(int64_t(mm::axes[axis].pos) - h.start) >= need) {
+    if (nt::VirtualAxisStall(axis) && !broken) {
         mm::TriggerStallGuard(axis);
-        h.fired = true;
-        h.resetPending = true;
+        stallPending[axis] = true;
     }
 }
 
@@ -89,12 +75,8 @@ void Step() {
     static uint32_t simMs = 0;
     if (faults.untilMs && ++simMs >= faults.untilMs)
         faults = Faults {};
-    SimHoming(idlerHome, mm::Idler, mi::idler.State(),
-        mm::unitToSteps<mm::I_pos_t>(config::idlerLimits.lenght - 5.0_deg),
-        mm::unitToSteps<mm::I_pos_t>(config::idlerLimits.lenght), faults.idlerHomeFail);
-    SimHoming(selectorHome, mm::Selector, ms::selector.State(),
-        5,
-        mm::unitToSteps<mm::S_pos_t>(config::selectorLimits.lenght) + 1, faults.selectorHomeFail);
+    SimHoming(mm::Idler, faults.idlerHomeFail);
+    SimHoming(mm::Selector, faults.selectorHomeFail);
 
     mm::pos_t p = mm::axes[mm::Pulley].pos;
     if (!pulleyInit) {

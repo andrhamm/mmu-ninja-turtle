@@ -1,5 +1,8 @@
 /// @file usart.h
 #pragma once
+#ifdef NT_STM32
+#include "stm32/usart.h" // Ninja Turtle STM32 port
+#else
 #include <inttypes.h>
 #include <avr/io.h>
 #include "gpio.h"
@@ -124,3 +127,5 @@ extern USART usart1;
 #define USART1 ((hal::usart::USART::USART_TypeDef *)&UCSR1A)
 
 namespace hu = hal::usart;
+
+#endif // NT_STM32

@@ -8,6 +8,7 @@ add_executable(
   main.cpp
   posix_serial.cpp
   physics.cpp
+  ${CMAKE_SOURCE_DIR}/src/nt/virtual_axes.cpp
   ${CMAKE_SOURCE_DIR}/src/registers.cpp
   ${CMAKE_SOURCE_DIR}/src/application.cpp
   ${CMAKE_SOURCE_DIR}/src/modules/buttons.cpp

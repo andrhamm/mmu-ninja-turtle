@@ -1,5 +1,8 @@
 /// @file gpio.h
 #pragma once
+#ifdef NT_STM32
+#include "stm32/gpio.h" // Ninja Turtle STM32 port: same API on STM32 GPIO registers
+#else
 #include <inttypes.h>
 
 #ifdef __AVR__
@@ -135,3 +138,5 @@ extern hal::gpio::GPIO_TypeDef _GPIOL;
 #define GPIOL (&::_GPIOL)
 
 #endif
+
+#endif // NT_STM32

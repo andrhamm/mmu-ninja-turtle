@@ -8,3 +8,4 @@ ctest --preset linux -LE soak
 cmake -S ports/afcpro -B build/afcpro -G Ninja
 cmake --build build/afcpro
 arm-none-eabi-size -t build/afcpro/libnt_core.a | tail -1
+cmake --build build/afcpro --target nt_afcpro.elf   # AFC-Pro firmware image (Box Turtle)
