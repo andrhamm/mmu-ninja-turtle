@@ -60,8 +60,14 @@ static void LanesInit() {
 namespace hal {
 namespace shr16 {
 SHR16 shr16;
-void SHR16::Init() {}
-void SHR16::SetLED(uint16_t) {} // LEDs: TODO map to AFC-Pro RGB headers
+void SHR16::Init() {
+    hal::gpio::Init(nt::STATUS_LED, hal::gpio::GPIO_InitTypeDef(hal::gpio::Mode::output, hal::gpio::Level::low));
+}
+// MMU3 has 5 green/red LED pairs; the AFC-Pro has one status LED: lit whenever any MMU LED is on (blinks follow the
+// MMU's own blink patterns). shortcut: RGB headers (per-lane colour) not used yet.
+void SHR16::SetLED(uint16_t led) {
+    hal::gpio::WritePin(nt::STATUS_LED, led ? hal::gpio::Level::high : hal::gpio::Level::low);
+}
 void SHR16::SetTMCEnabled(uint8_t index, bool ena) {
     if (index == mm::Pulley) {
         nt::pulleyEnabled = ena;

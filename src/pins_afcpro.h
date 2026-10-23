@@ -50,6 +50,7 @@ static const hal::gpio::GPIO_pin LANE_EXIT[laneCount] = { { GPIOD, 1u << 7 }, { 
 static const hal::gpio::GPIO_pin REWIND_RWD[laneCount] = { { GPIOE, 1u << 9 }, { GPIOE, 1u << 13 }, { GPIOB, 1u << 10 }, { GPIOB, 1u << 14 }, { GPIOD, 1u << 12 } };
 static const hal::gpio::GPIO_pin REWIND_FWD[laneCount] = { { GPIOE, 1u << 11 }, { GPIOE, 1u << 14 }, { GPIOB, 1u << 11 }, { GPIOB, 1u << 15 }, { GPIOD, 1u << 13 } };
 static const hal::gpio::GPIO_pin REWIND_EN[laneCount] = { { GPIOE, 1u << 15 }, { GPIOD, 1u << 9 }, { GPIOB, 1u << 13 }, { GPIOD, 1u << 11 }, { GPIOG, 1u << 3 } };
+static const hal::gpio::GPIO_pin STATUS_LED = { GPIOC, 1u << 10 }; // board status LED (manual: PC10)
 static const hal::gpio::GPIO_pin TN_ADVANCE = { GPIOB, 1u << 3 }; // TurtleNeck buffer
 static const hal::gpio::GPIO_pin TN_TRAILING = { GPIOG, 1u << 15 };
 } // namespace nt

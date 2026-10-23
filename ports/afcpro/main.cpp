@@ -5,6 +5,7 @@
 
 #include "../../src/application.h"
 #include "../../src/hal/cpu.h"
+#include "../../src/hal/shr16.h"
 #include "../../src/hal/usart.h"
 #include "../../src/logic/start_up.h"
 #include "../../src/modules/buttons.h"
@@ -29,6 +30,7 @@ void Panic(ErrorCode ec) { application.Panic(ec); }
 
 int main() {
     hal::cpu::Init();
+    hal::shr16::shr16.Init();
     mt::timebase.Init();
     mg::globals.Init();
     hu::USART::USART_InitTypeDef usart_conf = { .rx_pin = USART_RX, .tx_pin = USART_TX, .baudrate = 115200 };
