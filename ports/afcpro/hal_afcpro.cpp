@@ -17,6 +17,7 @@
 #include "../../src/nt/virtual_axes.h"
 #include "lanes.h"
 #include "tmc_uart.h"
+#include "eeprom_flush.h"
 #include "../../src/nt/tmc2209.h"
 
 #include <string.h>
@@ -165,10 +166,18 @@ void Reset() { NVIC_SystemReset(); }
 void Step() {}
 } // namespace cpu
 
-namespace watchdog { // TODO(phase 6b): IWDG
-void Enable(const configuration &) {}
-void Disable() {}
-void Reset() {}
+namespace watchdog { // IWDG1 on the 32 kHz LSI: prescaler /256 -> 125 Hz; ~8 s like the MMU3
+void Enable(const configuration &) {
+    IWDG1->KR = 0xCCCC; // start
+    IWDG1->KR = 0x5555; // unlock PR/RLR
+    IWDG1->PR = 6; // /256
+    IWDG1->RLR = 1000; // 1000 / 125 Hz = 8 s
+    while (IWDG1->SR) {
+    }
+    IWDG1->KR = 0xAAAA;
+}
+void Disable() {} // IWDG cannot be stopped once started
+void Reset() { IWDG1->KR = 0xAAAA; }
 } // namespace watchdog
 
 namespace adc { // Box Turtle has no MMU3 buttons: report "nothing pressed"
@@ -176,27 +185,83 @@ void Init() {}
 uint16_t ReadADC(uint8_t) { return 1023; }
 } // namespace adc
 
-namespace eeprom { // TODO(phase 6b): persist in a flash sector
+namespace eeprom {
+// 2 KB EEPROM image in RAM, persisted to flash sector 3 (0x08060000, excluded from the linker FLASH region).
+// Erased flash reads 0xFF == erased EEPROM, so a blank sector is a valid "factory" image.
+// shortcut: a sector erase stalls the CPU (code runs from the same bank) for ~1-2 s; flush only when the MMU is idle and
+// the printer link is quiet, upgrade to RAM-resident flash routines if the stall causes link timeouts on hardware.
 EEPROM eeprom;
 static uint8_t EE[EEPROM::End() + 1];
-static bool eeInit = false;
+static bool loaded = false, dirty = false;
+static uint16_t lastWriteMs = 0;
+static constexpr uint32_t sectorAddr = 0x08060000;
+static constexpr uint32_t sectorIndex = 3;
 static uint8_t *Mem() {
-    if (!eeInit) {
-        memset(EE, 0xff, sizeof(EE));
-        eeInit = true;
+    if (!loaded) {
+        memcpy(EE, (const void *)sectorAddr, sizeof(EE));
+        loaded = true;
     }
     return EE;
 }
-void EEPROM::WriteByte(addr_t a, uint8_t v) { Mem()[a] = v; }
-void EEPROM::UpdateByte(addr_t a, uint8_t v) { Mem()[a] = v; }
+static void Touch() {
+    dirty = true;
+    lastWriteMs = mt::timebase.Millis();
+}
+void EEPROM::WriteByte(addr_t a, uint8_t v) {
+    if (Mem()[a] != v) {
+        Mem()[a] = v;
+        Touch();
+    }
+}
+void EEPROM::UpdateByte(addr_t a, uint8_t v) { WriteByte(a, v); }
 uint8_t EEPROM::ReadByte(addr_t a) { return Mem()[a]; }
 uint8_t EEPROM::ReadByte(addr_t a, uint8_t d) { return Mem()[a] == 0xff ? d : Mem()[a]; }
-void EEPROM::WriteWord(addr_t a, uint16_t v) { memcpy(Mem() + a, &v, 2); }
+void EEPROM::WriteWord(addr_t a, uint16_t v) {
+    if (memcmp(Mem() + a, &v, 2)) {
+        memcpy(Mem() + a, &v, 2);
+        Touch();
+    }
+}
 void EEPROM::UpdateWord(addr_t a, uint16_t v) { WriteWord(a, v); }
 uint16_t EEPROM::ReadWord(addr_t a) {
     uint16_t v;
     memcpy(&v, Mem() + a, 2);
     return v;
+}
+
+static void WaitFlash() {
+    while (FLASH->SR1 & (FLASH_SR_QW | FLASH_SR_BSY)) {
+    }
+}
+
+bool FlushIfDue(bool idle) {
+    if (!dirty || !idle || !mt::timebase.Elapsed(lastWriteMs, 2000))
+        return false;
+    uint32_t prim = __get_PRIMASK();
+    __disable_irq();
+    FLASH->KEYR1 = 0x45670123;
+    FLASH->KEYR1 = 0xCDEF89AB;
+    WaitFlash();
+    FLASH->CCR1 = 0xFFFFFFFF; // clear error flags
+    FLASH->CR1 = (FLASH->CR1 & ~FLASH_CR_SNB) | FLASH_CR_SER | (sectorIndex << FLASH_CR_SNB_Pos);
+    FLASH->CR1 |= FLASH_CR_START;
+    WaitFlash();
+    FLASH->CR1 &= ~FLASH_CR_SER;
+    FLASH->CR1 |= FLASH_CR_PG;
+    volatile uint32_t *dst = (volatile uint32_t *)sectorAddr;
+    const uint32_t *src = (const uint32_t *)EE;
+    for (uint32_t i = 0; i < sizeof(EE) / 4; i += 8) { // 256-bit flash words
+        for (uint32_t w = 0; w < 8; ++w)
+            dst[i + w] = src[i + w];
+        __DSB();
+        WaitFlash();
+    }
+    FLASH->CR1 &= ~FLASH_CR_PG;
+    FLASH->CR1 |= FLASH_CR_LOCK;
+    SCB_InvalidateDCache_by_Addr((void *)sectorAddr, sizeof(EE));
+    __set_PRIMASK(prim);
+    dirty = false;
+    return true;
 }
 } // namespace eeprom
 

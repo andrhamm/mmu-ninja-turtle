@@ -22,6 +22,8 @@
 #include "../../src/panic.h"
 #include "../../src/pins.h"
 #include "lanes.h"
+#include "eeprom_flush.h"
+#include "../../src/hal/watchdog.h"
 
 void Panic(ErrorCode ec) { application.Panic(ec); }
 
@@ -32,6 +34,7 @@ int main() {
     hu::USART::USART_InitTypeDef usart_conf = { .rx_pin = USART_RX, .tx_pin = USART_TX, .baudrate = 115200 };
     hu::usart1.Init(&usart_conf);
     mm::Init();
+    hwd::Enable(hwd::configuration::compute(8000));
     __enable_irq();
 
     mf::finda.BlockingInit();
@@ -52,5 +55,8 @@ int main() {
         mpu::pulley.Step();
         mui::userInput.Step();
         application.Step();
+        // persist settings only while nothing is running (flash erase stalls the CPU, see hal_afcpro.cpp)
+        hal::eeprom::FlushIfDue(application.CurrentProgressCode() == uint8_t(ProgressCode::OK) && mm::motion.QueueEmpty());
+        hwd::Reset();
     }
 }

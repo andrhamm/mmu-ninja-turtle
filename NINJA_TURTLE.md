@@ -65,7 +65,7 @@ Soak tests (excluded from `scripts/ci`): `ctest --preset linux -L soak` (100 too
 - `nt_afcpro.elf/.bin`: upstream application/logic/motion on Box Turtle hardware — 22.8 KB flash, 9.6 KB RAM.
   HAL in `hal_afcpro.cpp` + `src/hal/stm32/`: GPIO, SysTick timebase, TIM2 step timer (2 MHz, same contract as AVR TIMER1),
   pulley axis routed to the active lane (`nt::SelectLane`, lane = idler slot), virtual selector/idler with synthesized end-stops,
-  HUB = FINDA, RAM EEPROM. CMSIS from `third_party/cmsis`.
+  HUB = FINDA, EEPROM image in RAM persisted to flash sector 3 when idle, IWDG (~8 s). CMSIS from `third_party/cmsis`.
 - TMC2209 per-lane config over bit-banged single-wire UART (`tmc_uart.cpp`, 19200 baud): GCONF/CHOPCONF (with dedge)/IHOLD_IRUN,
   link verified via IFCNT.
 - Not done (needs hardware/info): printer-link USART pins, Box Turtle steps/mm calibration, clocks (runs on reset HSI 64 MHz),
