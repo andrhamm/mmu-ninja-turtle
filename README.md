@@ -155,13 +155,19 @@ This replaces any Klipper/Katapult image on the board; Klipper can be reflashed 
 1. Measure the printer's MMU port; QT Py bridge + `vmmu` against the real printer (protocol line-up, idle soak, errors)
 2. AFC-Pro bring-up: clocks, TMC2209 links, one lane, then five
 3. Box Turtle calibration: steps/mm, currents, park/hub distances, bowden length
-4. Multi-colour prints; long soak
+4. **Print-time lane assist:** a Box Turtle lane keeps its drive gears on the filament (an MMU3 idler releases it), so the
+   extruder would otherwise drag filament through the lane gearbox. Drive the active lane from the TurtleNeck buffer
+   sensors while the MMU is idle with filament in the nozzle, as AFC does — invisible to the printer
+5. Lane sensors: empty-lane detection and auto-load on insertion; spool rewinders on unload
+6. Multi-colour prints; long soak
 
 ## Known limitations
 
 - Five filaments maximum (printer firmware accepts T0–T4 only).
 - No cutter support; tip shaping comes from the slicer/printer as with a stock MMU3.
-- Box Turtle per-lane sensors, rewinders and TurtleNeck buffer are mapped but not yet used by the logic.
+- Box Turtle per-lane sensors, rewinders and TurtleNeck buffer are mapped but not yet used by the logic. Until print-time
+  lane assist exists, the extruder must pull filament through the active lane's drive gears.
+- The printer may not accept a bowden length above 1000 mm (the MMU side now allows 2000 mm for Box Turtle installs).
 - Hardware constants (lane steps/mm, motor current, sense resistor) are taken from AFC defaults and are unverified.
 
 ## Acknowledgements
