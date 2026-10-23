@@ -14,15 +14,15 @@ void loop() {
     static uint32_t lastActivity = 0;
     int n;
     while ((n = Serial.available()) > 0) { // host -> printer
-        uint8_t buf[64];
+        char buf[64];
         n = Serial.readBytes(buf, n > 64 ? 64 : n);
-        Serial1.write(buf, n);
+        Serial1.write((const uint8_t *)buf, n);
         lastActivity = millis();
     }
     while ((n = Serial1.available()) > 0) { // printer -> host
-        uint8_t buf[64];
+        char buf[64];
         n = Serial1.readBytes(buf, n > 64 ? 64 : n);
-        Serial.write(buf, n);
+        Serial.write((const uint8_t *)buf, n);
         Serial.flush(); // push the USB packet now rather than waiting for it to fill
         lastActivity = millis();
     }

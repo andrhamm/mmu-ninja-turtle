@@ -77,4 +77,4 @@ Hardware mapping: `docs/afc-pro-port.md`.
 ## Phase 5 bridge (QT Py SAMD21)
 `tools/bridge/qtpy_bridge/qtpy_bridge.ino`: USB CDC <-> UART passthrough at 115200 so vmmu can answer the printer's MMU port.
 Build: `tools/bridge/build.sh` (arduino-cli + Adafruit SAMD core in a throwaway container) -> `.uf2`; flash by double-tapping
-reset and copying to QTPY_BOOT. Compile not yet verified (Docker VM disk was full on 2026-10-23).
+reset and copying `tools/bridge/build/qtpy_bridge.uf2` to QTPY_BOOT. Compiles (10 KB); untested on hardware.
