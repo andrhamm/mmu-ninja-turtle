@@ -14,6 +14,11 @@ static const hal::gpio::GPIO_pin NC = { nullptr, 0 }; ///< not connected
 // (USART1 alt PB7/PB6); verify against the STM32H723 datasheet before wiring.
 static const hal::gpio::GPIO_pin USART_TX = { GPIOB, 1u << 6 };
 static const hal::gpio::GPIO_pin USART_RX = { GPIOB, 1u << 7 };
+// The printer's RX (MMU port J1 pin 3) needs a 5 V driver: TX goes through a 74AHCT125 whose /OE is driven from SW20 (PG14),
+// pulled up to 5 V so the buffer stays off until the printer's TX (J1 pin 1) has idled high (see 3dfarm Research/MMU Port Pinout).
+namespace nt {
+static const hal::gpio::GPIO_pin LINK_TX_OE = { GPIOG, 1u << 14 }; // active low
+}
 
 // --- MMU3 hardware that does not exist on a Box Turtle ---
 static const hal::gpio::GPIO_pin TMC2130_SPI_MISO_PIN = nt::NC;

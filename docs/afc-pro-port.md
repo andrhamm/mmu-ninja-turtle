@@ -40,3 +40,17 @@ HUB = PD0. Lanes 6–8 exist on the board (unused at 5 lanes).
 - TMC2209 UART driver (replaces `hal/tmc2130` + `hal/shr16`), StallGuard not required (no homing axes).
 - DC rewinder PWM, flash-emulated EEPROM, watchdog, USB CDC for logs (`hal/usb_cdc`).
 - Guard AVR-only code (`progmem`, `__attribute__((section))`, `<avr/*>`).
+
+## Wiring to the printer (CORE One L MMU port J1, xBuddy Extension Rev 06)
+Details/sources: 3dfarm `Research/MMU Port Pinout CORE One L.md`.
+
+| J1 pin | Signal | Connect to |
+|---|---|---|
+| 1 | printer TX (3.3 V) | 1 kΩ → AFC-Pro PB7 (SW14 signal) |
+| 3 | printer RX (expects 5 V drive) | 74AHCT125 output; input from PB6 (SW15 signal); AHCT VCC 5 V; /OE ← PG14 (SW20 signal) + 10 kΩ pull-up to 5 V |
+| 7, 9, 11 | GND | AFC-Pro GND |
+| 2, 4, 5, 6, 8, 10, 12 | RS485, 5 V, reset, power-loss, 24 V | **never connect** |
+
+The firmware keeps /OE high until J1 pin 1 idles high for 100 ms. The AFC-Pro and the printer share only GND and the two
+signals; each keeps its own supply. Which AFC-Pro header provides 5 V for the AHCT125 is unverified (RGB headers carry
++5VBUCK per the schematic — check with a meter). Reset (pin 6) is ignored; the protocol's `X0` soft reset is handled.

@@ -28,16 +28,40 @@
 
 void Panic(ErrorCode ec) { application.Panic(ec); }
 
+/// Keep the 5 V TX buffer disabled until the printer's TX line has idled high for 100 ms (printer powered), so we never
+/// drive an unpowered printer input. RX is pulled down meanwhile so a floating line does not look "high".
+static void WaitForPrinterLink() {
+    hal::gpio::Init(nt::LINK_TX_OE, hal::gpio::GPIO_InitTypeDef(hal::gpio::Mode::output, hal::gpio::Level::high));
+    hal::gpio::Init(USART_RX, hal::gpio::GPIO_InitTypeDef(hal::gpio::Mode::input, hal::gpio::Pull::down));
+    uint16_t highSince = 0;
+    bool high = false;
+    for (;;) {
+        if (hal::gpio::ReadPin(USART_RX) == hal::gpio::Level::high) {
+            if (!high) {
+                high = true;
+                highSince = mt::timebase.Millis();
+            } else if (mt::timebase.Elapsed(highSince, 100)) {
+                return;
+            }
+        } else {
+            high = false;
+        }
+        hal::gpio::WritePin(nt::STATUS_LED, (mt::timebase.Millis() / 500) & 1 ? hal::gpio::Level::high : hal::gpio::Level::low);
+    }
+}
+
 int main() {
     hal::cpu::Init();
     hal::shr16::shr16.Init();
     mt::timebase.Init();
     mg::globals.Init();
+    mm::Init();
+    __enable_irq(); // SysTick needed by WaitForPrinterLink
+    WaitForPrinterLink();
     hu::USART::USART_InitTypeDef usart_conf = { .rx_pin = USART_RX, .tx_pin = USART_TX, .baudrate = 115200 };
     hu::usart1.Init(&usart_conf);
-    mm::Init();
+    hal::gpio::WritePin(nt::LINK_TX_OE, hal::gpio::Level::low); // printer powered: enable TX buffer
     hwd::Enable(hwd::configuration::compute(8000));
-    __enable_irq();
 
     mf::finda.BlockingInit();
     logic::startUp.Reset(0);
