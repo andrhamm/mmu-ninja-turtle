@@ -68,6 +68,6 @@ Soak tests (excluded from `scripts/ci`): `ctest --preset linux -L soak` (100 too
   HUB = FINDA, EEPROM image in RAM persisted to flash sector 3 when idle, IWDG (~8 s). CMSIS from `third_party/cmsis`.
 - TMC2209 per-lane config over bit-banged single-wire UART (`tmc_uart.cpp`, 19200 baud): GCONF/CHOPCONF (with dedge)/IHOLD_IRUN,
   link verified via IFCNT.
-- Not done (needs hardware/info): printer-link USART pins, Box Turtle steps/mm calibration, clocks (runs on reset HSI 64 MHz),
-  flash-backed EEPROM, IWDG, LEDs, bootloader offset. Untested on hardware.
+- Not done (needs hardware/info): printer-link USART pins, Box Turtle steps/mm calibration, clocks (reset HSI 64 MHz),
+  LEDs, bootloader offset. Untested on hardware; flash erase stalls the CPU ~1-2 s (see hal_afcpro.cpp).
 Hardware mapping: `docs/afc-pro-port.md`.
