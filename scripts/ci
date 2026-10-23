@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Build everything and run all tests. Runs inside the dev container (scripts/dev ./scripts/ci) and in CI.
+set -euo pipefail
+cmake --preset linux
+cmake --build --preset linux
+ctest --preset linux

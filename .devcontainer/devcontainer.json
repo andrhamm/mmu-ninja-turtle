@@ -1,0 +1,7 @@
+{
+  "name": "ninja-turtle",
+  "build": { "dockerfile": "../docker/Dockerfile" },
+  "workspaceFolder": "/work",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/work,type=bind",
+  "customizations": { "vscode": { "extensions": ["ms-vscode.cmake-tools", "ms-vscode.cpptools"] } }
+}

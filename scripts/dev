@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Run a command inside the dev container, e.g.:  scripts/dev cmake --preset linux
+#   scripts/dev ./scripts/ci     (full build + tests + vmmu smoke, same as CI)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+docker build -q -t ninja-turtle-dev -f docker/Dockerfile docker >/dev/null
+tty=(); [ -t 0 ] && tty=(-it)
+exec docker run --rm "${tty[@]}" -v "$PWD:/work" -w /work ninja-turtle-dev "${@:-bash}"
