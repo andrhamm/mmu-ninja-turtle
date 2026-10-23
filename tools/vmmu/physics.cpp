@@ -118,3 +118,6 @@ long double TipMm(uint8_t slot) {
 
 } // namespace physics
 } // namespace vmmu
+
+/// Box Turtle has no cutter at the changer: Cut requests are rejected (overrides the weak default in src/application.cpp).
+bool HasCutter() { return vmmu::physics::changer != vmmu::physics::Changer::BoxTurtle; }

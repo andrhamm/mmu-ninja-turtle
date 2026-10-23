@@ -38,6 +38,11 @@ for code, v, want in [("S", 0, "S0 A3*"), ("S", 1, "S1 A0*"), ("S", 2, "S2 A4*")
 # modes: load (L1 must finish), load-error / tc-error (L1 / T1 must end in an error; T feeds a limited distance,
 # L pushes until FINDA or a button by design)
 mode = sys.argv[2] if len(sys.argv) > 2 else ""
+if mode in ("cut-rejected", "cut-accepted"):  # Box Turtle has no cutter -> K must be rejected; MMU3 accepts it
+    r, _ = ask("K", 1)
+    want = "K1 R" if mode == "cut-rejected" else "K1 A"
+    print(f"K1 -> {r!r}")
+    fails += not r.startswith(want)
 if mode in ("load", "load-error", "tc-error"):
     cmd = "T" if mode == "tc-error" else "L"
     r, _ = ask(cmd, 1)

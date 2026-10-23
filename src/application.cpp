@@ -104,6 +104,10 @@ void Application::ReportCommandAccepted(const mp::RequestMsg &rq, mp::ResponseMs
     modules::serial::WriteToUSART(tmp, len);
 }
 
+/// Ninja Turtle: changers without a filament cutter (e.g. Box Turtle) reject Cut requests instead of running the
+/// MMU3 blade sequence. Default: cutter present (stock MMU3); a hardware build/simulator overrides this.
+bool __attribute__((weak)) HasCutter() { return true; }
+
 void __attribute__((noinline)) Application::PlanCommand(const modules::protocol::RequestMsg &rq) {
     if (currentCommand->State() == ProgressCode::OK) {
         // We are allowed to start a new command as the previous one is in the OK finished state
@@ -252,6 +256,12 @@ void Application::ProcessRequestMsg(const mp::RequestMsg &rq) {
         ReportWriteRegister(rq);
         break;
     case mp::RequestMsgCodes::Cut:
+        if (!HasCutter()) {
+            ReportCommandAccepted(rq, mp::ResponseMsgParamCodes::Rejected);
+            break;
+        }
+        PlanCommand(rq);
+        break;
     case mp::RequestMsgCodes::Eject:
     case mp::RequestMsgCodes::Home:
     case mp::RequestMsgCodes::Load:

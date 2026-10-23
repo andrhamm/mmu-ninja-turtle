@@ -28,6 +28,7 @@ Docker Desktop on macOS can't hand USB serial devices to containers, so the Mac 
 Flashing MCUs (later phases) also runs on the Mac; builds stay in the container.
 
 ## Changes from upstream
+- `src/application.cpp`: Cut (`K`) requests are rejected when `HasCutter()` is false (weak default `true`; Box Turtle builds/sim override).
 - `tests/unit/modules/protocol/test_protocol.cpp`: test helper read past the end of a `string_view` (caught by GCC 16 assertions).
 
 ## vmmu (virtual MMU)

@@ -62,4 +62,6 @@ add_test(NAME vmmu::lineup COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/smoke_test.sh $<T
 add_test(NAME vmmu::load_slot1 COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/smoke_test.sh $<TARGET_FILE:vmmu> load)
 add_test(NAME vmmu::fault_finda_stuck_off COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/smoke_test.sh $<TARGET_FILE:vmmu> tc-error --fault finda-stuck-off)
 add_test(NAME vmmu::fault_selector_home COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/smoke_test.sh $<TARGET_FILE:vmmu> load-error --fault selector-home-fail)
+add_test(NAME vmmu::bt_rejects_cut COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/smoke_test.sh $<TARGET_FILE:vmmu> cut-rejected --changer boxturtle)
+add_test(NAME vmmu::mmu3_accepts_cut COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/smoke_test.sh $<TARGET_FILE:vmmu> cut-accepted)
 set_tests_properties(vmmu::load_slot1 vmmu::fault_finda_stuck_off vmmu::fault_selector_home PROPERTIES TIMEOUT 120)
