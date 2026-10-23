@@ -29,6 +29,7 @@ Flashing MCUs (later phases) also runs on the Mac; builds stay in the container.
 
 ## Changes from upstream
 - `src/hal/gpio.h`, `src/hal/usart.h`, `src/pins.h`: `#ifdef NT_STM32` dispatch to `src/hal/stm32/*` / `src/pins_afcpro.h` (AVR/host paths unchanged).
+- `src/config/config.h`: `NT_BOXTURTLE` pulley config (lane motor: 4.65 mm/rev, 2 microsteps ≈ 86 steps/mm, iRun 25).
 - `src/modules/motion.cpp`: `NT_STM32` hooks for the step-timer IRQ (enable/disable/init).
 - New: `src/nt/tmc2209.*` (TMC2209 UART datagrams/register values, unit-tested against Klipper's algorithm).
 - New: `src/nt/virtual_axes.*` (synthesized selector/idler end-stops for virtual axes; used by the AFC-Pro firmware and vmmu).
@@ -69,6 +70,6 @@ Soak tests (excluded from `scripts/ci`): `ctest --preset linux -L soak` (100 too
 - TMC2209 per-lane config over bit-banged single-wire UART (`tmc_uart.cpp`, 19200 baud): GCONF/CHOPCONF (with dedge)/IHOLD_IRUN,
   link verified via IFCNT.
 - Printer link: USART1 on PB6/PB7 via switch ports SW15/SW14 (115200, IRQ ring buffers). Flash via ROM DFU (`docs/afc-pro-port.md`).
-- Not done (needs hardware/info): Box Turtle steps/mm calibration, clocks (reset HSI 64 MHz; board has 25 MHz HSE),
+- Not done (needs hardware/info): lane steps/mm + current verification on hardware, clocks (reset HSI 64 MHz; board has 25 MHz HSE),
   LEDs, bootloader offset. Untested on hardware; flash erase stalls the CPU ~1-2 s (see hal_afcpro.cpp).
 Hardware mapping: `docs/afc-pro-port.md`.

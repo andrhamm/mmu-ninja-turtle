@@ -109,6 +109,22 @@ static constexpr U_mm fsensorToNozzleAvoidGrindUnload = 20.0_mm;
 static constexpr U_mm fsensorUnloadCheckDistance = 40.0_mm;
 
 /// Begin: Pulley axis configuration
+#ifdef NT_BOXTURTLE
+/// Ninja Turtle: the "pulley" is the active Box Turtle lane motor. AFC defaults (templates/AFC_Pro_Turtle_1.cfg):
+/// rotation_distance 4.65 mm/rev, 200 full steps, run_current 0.8 A. 2 microsteps (TMC2209 interpolates to 256) gives
+/// ~86 steps/mm, close to the MMU3's 83.6, so the AVR-tuned step timing/speed table stays valid.
+/// iRun 25 with vsense=1 ~ 0.8 A RMS assuming 0.11 ohm sense resistors (UNVERIFIED for the kit's drivers).
+static constexpr AxisConfig pulley = {
+    .dirOn = false,
+    .mRes = MRes_2,
+    .iRun = 25,
+    .iHold = 0,
+    .stealth = false,
+    .stepsPerUnit = (200 * 2 / 4.65),
+    .stepsPerUnitReciprocal = 1 / ((200 * 2 / 4.65)),
+    .sg_thrs = 8,
+};
+#else
 static constexpr AxisConfig pulley = {
     .dirOn = false,
     .mRes = MRes_8,
@@ -119,6 +135,7 @@ static constexpr AxisConfig pulley = {
     .stepsPerUnitReciprocal = 1 / ((200 * 8 / 19.147274)),
     .sg_thrs = 8,
 };
+#endif
 
 /// Pulley motion limits
 static constexpr PulleyLimits pulleyLimits = {
