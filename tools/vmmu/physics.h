@@ -5,6 +5,12 @@ namespace vmmu {
 namespace physics {
 /// Distance past the pulley at which the simulated FINDA trips.
 constexpr long double findaTripMm = 20.0;
+/// Changer hardware being simulated. BoxTurtle: no selector/idler mechanics (those axes are virtual and complete instantly,
+/// homing succeeds at once); the "idler slot" selects which lane motor the pulley axis drives; FINDA = hub sensor.
+enum class Changer { MMU3, BoxTurtle };
+extern Changer changer;
+bool SetChanger(const char *name);
+
 /// Injectable faults (vmmu --fault <name>), for exercising the printer's error/recovery paths.
 struct Faults {
     bool findaStuckOff = false; ///< FINDA never triggers -> load/tool-change errors

@@ -1,5 +1,5 @@
 // vmmu — the unmodified MMU application + logic on the host, speaking MMU3 protocol on a serial port or pty.
-// Usage: vmmu [--port <device> | pty | tcp:host:port] [--log frames.jsonl] [--fault <name>]...
+// Usage: vmmu [--port <device> | pty | tcp:host:port] [--log frames.jsonl] [--changer mmu3|boxturtle] [--fault <name>]...
 #include "physics.h"
 #include "posix_serial.h"
 
@@ -49,8 +49,10 @@ int main(int argc, char **argv) {
             logPath = argv[++i];
         else if (!strcmp(argv[i], "--fault") && i + 1 < argc && vmmu::physics::SetFault(argv[i + 1]))
             ++i;
+        else if (!strcmp(argv[i], "--changer") && i + 1 < argc && vmmu::physics::SetChanger(argv[i + 1]))
+            ++i;
         else {
-            fprintf(stderr, "usage: %s [--port <device>|pty|tcp:host:port] [--log <file.jsonl>]\n"
+            fprintf(stderr, "usage: %s [--port <device>|pty|tcp:host:port] [--log <file.jsonl>] [--changer mmu3|boxturtle]\n"
                             "          [--fault finda-stuck-off|finda-stuck-on|idler-home-fail|selector-home-fail|reply-delay=MS[:ms]]...\n", argv[0]);
             return 2;
         }
@@ -62,7 +64,8 @@ int main(int argc, char **argv) {
     }
     FILE *logf = logPath.empty() ? nullptr : fopen(logPath.c_str(), "a");
     vmmu::SetLog(logf);
-    printf("vmmu %d.%d.%d on %s\n", PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_REV, opened.c_str());
+    printf("vmmu %d.%d.%d (%s) on %s\n", PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_REV,
+        vmmu::physics::changer == vmmu::physics::Changer::BoxTurtle ? "boxturtle" : "mmu3", opened.c_str());
     fflush(stdout);
 
     // "power on": same order as setup()/setup2() in src/main.cpp, with stubs for hardware

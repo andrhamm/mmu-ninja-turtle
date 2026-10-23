@@ -38,6 +38,8 @@ motors/sensors/EEPROM simulated (`tools/vmmu/physics.cpp`: stall-guard homing, p
     python3 -I tools/vmmu/smoke.py /dev/ttysNNN [load]
 
 Motion runs at planned feed rates (`tools/vmmu/motion_sim.cpp`, constant velocity): L1 incl. first homing ≈ 9 s.
+Changer model: `--changer mmu3` (default) or `--changer boxturtle` — no selector/idler mechanics (virtual axes, 20x speed so
+homing still sees its end-stop), the idler slot picks which lane motor the pulley axis drives, FINDA = Box Turtle hub sensor.
 Faults: `--fault finda-stuck-off|finda-stuck-on|idler-home-fail|selector-home-fail[:ms]` (`:ms` = auto-clear).
 
 ## vprinter (virtual printer)

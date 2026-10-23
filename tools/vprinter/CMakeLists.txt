@@ -17,6 +17,13 @@ add_test(NAME loop::idle_30s COMMAND ${LOOP} --scenario idle:30 --gate-ms 10)
 add_test(NAME loop::toolchange_x5 COMMAND ${LOOP} --scenario tc:5 --gate-ms 10)
 add_test(NAME loop::error_retry COMMAND ${LOOP} --scenario tc-retry --gate-ms 10)
 set_tests_properties(loop::error_retry PROPERTIES ENVIRONMENT "VMMU_ARGS=--fault finda-stuck-off:6000")
+# same scenarios against the Box Turtle hardware model
+add_test(NAME loop_bt::lineup COMMAND ${LOOP} --scenario lineup --gate-ms 10)
+add_test(NAME loop_bt::toolchange_x5 COMMAND ${LOOP} --scenario tc:5 --gate-ms 10)
+add_test(NAME loop_bt::error_retry COMMAND ${LOOP} --scenario tc-retry --gate-ms 10)
+set_tests_properties(loop_bt::lineup loop_bt::toolchange_x5 PROPERTIES ENVIRONMENT "VMMU_ARGS=--changer boxturtle" TIMEOUT 300)
+set_tests_properties(loop_bt::error_retry PROPERTIES ENVIRONMENT "VMMU_ARGS=--changer boxturtle --fault finda-stuck-off:6000" TIMEOUT 300)
+
 # negative test: a controller that answers in 15 ms must be rejected by the 10 ms gate
 add_test(NAME loop::gate_rejects_slow_mmu COMMAND ${LOOP} --scenario idle:5 --gate-ms 10)
 set_tests_properties(loop::gate_rejects_slow_mmu PROPERTIES ENVIRONMENT "VMMU_ARGS=--fault reply-delay=15" WILL_FAIL TRUE)

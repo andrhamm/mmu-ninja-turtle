@@ -1,6 +1,7 @@
 #include "motion.h"
 #include "idler.h"
 #include "stub_motion.h"
+#include "physics.h"
 
 #include <deque>
 
@@ -84,7 +85,8 @@ void Motion::SetMode(MotorMode mode) {
 
 st_timer_t Motion::Step() {
     for (uint8_t i = 0; i < 3; ++i) {
-        frac[i] += axes[i].plannedMoves.empty() ? 0 : feeds[i].front() / 1000.0L; // steps this millisecond
+        bool virtualAxis = vmmu::physics::changer == vmmu::physics::Changer::BoxTurtle && i != Pulley; // no selector/idler hardware
+        frac[i] += axes[i].plannedMoves.empty() ? 0 : feeds[i].front() * (virtualAxis ? 20 : 1) / 1000.0L; // steps this ms; virtual axes 20x (instant would skip the homing stall)
         while (!axes[i].plannedMoves.empty()) {
             pos_t target = axes[i].plannedMoves.front();
             if (axes[i].pos == target) {

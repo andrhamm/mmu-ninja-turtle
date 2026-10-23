@@ -16,6 +16,17 @@ namespace vmmu {
 namespace physics {
 
 Faults faults;
+Changer changer = Changer::MMU3;
+
+bool SetChanger(const char *n) {
+    if (!strcmp(n, "mmu3"))
+        changer = Changer::MMU3;
+    else if (!strcmp(n, "boxturtle"))
+        changer = Changer::BoxTurtle;
+    else
+        return false;
+    return true;
+}
 
 bool SetFault(const char *arg) {
     char n[64];
