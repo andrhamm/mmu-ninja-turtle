@@ -73,3 +73,8 @@ Soak tests (excluded from `scripts/ci`): `ctest --preset linux -L soak` (100 too
 - Not done (needs hardware/info): lane steps/mm + current verification on hardware, clocks (reset HSI 64 MHz; board has 25 MHz HSE),
   LEDs, bootloader offset. Untested on hardware; flash erase stalls the CPU ~1-2 s (see hal_afcpro.cpp).
 Hardware mapping: `docs/afc-pro-port.md`.
+
+## Phase 5 bridge (QT Py SAMD21)
+`tools/bridge/qtpy_bridge/qtpy_bridge.ino`: USB CDC <-> UART passthrough at 115200 so vmmu can answer the printer's MMU port.
+Build: `tools/bridge/build.sh` (arduino-cli + Adafruit SAMD core in a throwaway container) -> `.uf2`; flash by double-tapping
+reset and copying to QTPY_BOOT. Compile not yet verified (Docker VM disk was full on 2026-10-23).
