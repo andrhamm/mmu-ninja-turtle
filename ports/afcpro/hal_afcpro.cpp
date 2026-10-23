@@ -129,15 +129,33 @@ void TMC2130::Isr(const MotorParams &params) {
 // ---------------- printer link USART ----------------
 namespace usart {
 USART usart1;
-// OPEN: printer-link pins unknown (pins_afcpro.h). Buffers work; the peripheral is wired up once pins are chosen.
+// USART1 on PB6 (TX) / PB7 (RX), AF7. Kernel clock = PCLK2 (64 MHz after reset; TODO update when clocks are configured).
+static constexpr uint32_t usartClock = 64000000;
+
+static void PinAF7(GPIO_TypeDef *port, uint32_t n) {
+    port->MODER = (port->MODER & ~(3u << (2 * n))) | (2u << (2 * n));
+    port->OSPEEDR |= 2u << (2 * n);
+    port->PUPDR = (port->PUPDR & ~(3u << (2 * n))) | (1u << (2 * n)); // pull-up keeps an unconnected RX idle
+    volatile uint32_t &afr = port->AFR[n >> 3];
+    afr = (afr & ~(0xFu << (4 * (n & 7)))) | (7u << (4 * (n & 7)));
+}
+
 uint8_t USART::Read() {
     uint8_t c = 0;
+    NVIC_DisableIRQ(USART1_IRQn);
     rx_buf.pop(c);
+    NVIC_EnableIRQ(USART1_IRQn);
     return c;
 }
 void USART::Write(uint8_t c) {
-    while (!tx_buf.push(c)) {
+    for (;;) {
+        NVIC_DisableIRQ(USART1_IRQn);
+        bool ok = tx_buf.push(c);
+        NVIC_EnableIRQ(USART1_IRQn);
+        if (ok)
+            break;
     }
+    USART1->CR1 |= USART_CR1_TXEIE_TXFNFIE;
 }
 void USART::WriteS(const char *s) {
     while (*s)
@@ -147,10 +165,37 @@ void USART::puts(const char *s) {
     WriteS(s);
     Write('\n');
 }
-void USART::Flush() {}
-void USART::rx_enable() {}
-void USART::Init(USART_InitTypeDef *const) {}
-void USART::Isr() {}
+void USART::Flush() {
+    while (!tx_buf.empty() || !(USART1->ISR & USART_ISR_TC)) {
+    }
+}
+void USART::rx_enable() { USART1->CR1 |= USART_CR1_RE | USART_CR1_RXNEIE_RXFNEIE; }
+void USART::Init(USART_InitTypeDef *const conf) {
+    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+    (void)RCC->APB2ENR;
+    PinAF7(GPIOB, 6);
+    PinAF7(GPIOB, 7);
+    USART1->CR1 = 0;
+    USART1->BRR = (usartClock + conf->baudrate / 2) / conf->baudrate;
+    USART1->CR1 = USART_CR1_TE | USART_CR1_UE; // RX enabled later by rx_enable(), like the AVR code
+    NVIC_EnableIRQ(USART1_IRQn);
+}
+void USART::Isr() {
+    uint32_t isr = USART1->ISR;
+    if (isr & USART_ISR_ORE)
+        USART1->ICR = USART_ICR_ORECF;
+    if (isr & USART_ISR_FE)
+        USART1->ICR = USART_ICR_FECF;
+    if (isr & USART_ISR_RXNE_RXFNE)
+        rx_buf.push(uint8_t(USART1->RDR));
+    if ((USART1->CR1 & USART_CR1_TXEIE_TXFNFIE) && (isr & USART_ISR_TXE_TXFNF)) {
+        uint8_t c;
+        if (tx_buf.pop(c))
+            USART1->TDR = c;
+        else
+            USART1->CR1 &= ~USART_CR1_TXEIE_TXFNFIE;
+    }
+}
 } // namespace usart
 
 // ---------------- misc ----------------
@@ -291,6 +336,8 @@ bool StepTimerIrqDisable() {
 }
 } // namespace stm32
 } // namespace hal
+
+extern "C" void USART1_IRQHandler() { hal::usart::usart1.Isr(); }
 
 extern "C" void TIM2_IRQHandler() {
     TIM2->SR = 0;
