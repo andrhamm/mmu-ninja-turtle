@@ -1,8 +1,6 @@
-# Ninja Turtle
+# Ninja Turtle — developer guide
 
-Unofficial fork of [Prusa-Firmware-MMU](https://github.com/prusa3d/Prusa-Firmware-MMU) v3.0.4 (GPL-3.0, see `LICENSE.md`).
-Goal: make a 5-lane Box Turtle filament changer present itself to a stock-firmware Prusa CORE One L+ as an MMU3.
-Not affiliated with or supported by Prusa Research. Project notes: `~/dev/3dfarm/Builds/Ninja Turtle.md`.
+Detailed notes on the build, the simulators and the AFC-Pro port. Start with the [README](../README.md).
 
 ## Build & test (dev container — primary, same as CI)
 Ubuntu 24.04 image (`docker/Dockerfile`): GCC, CMake, Ninja, Python, arm-none-eabi-gcc, socat.

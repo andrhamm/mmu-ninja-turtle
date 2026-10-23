@@ -54,3 +54,27 @@ Details/sources: 3dfarm `Research/MMU Port Pinout CORE One L.md`.
 The firmware keeps /OE high until J1 pin 1 idles high for 100 ms. The AFC-Pro and the printer share only GND and the two
 signals; each keeps its own supply. Which AFC-Pro header provides 5 V for the AHCT125 is unverified (RGB headers carry
 +5VBUCK per the schematic — check with a meter). Reset (pin 6) is ignored; the protocol's `X0` soft reset is handled.
+
+## Multimeter checklist before first connection
+(From the 3dfarm research note "MMU Port Pinout CORE One L", 2026-10-23; schematic: Prusa MK4-xBuddyExtension-06.pdf.)
+
+For confirming the pinout on your own unit before connecting anything. Printer **unplugged from mains** for steps 1–4. Find pin 1 by the small triangle on the housing (community note: it is easy to number in reverse).
+
+1. **Cable continuity** (cable out of the printer): map the 2×6 to the 1×8 MMU end. Expect 1→8, 3→7, 6→5, 10/12→3/4, 7/9/11→1/2/6, and pins **2, 4, 5, 8 empty** (community map). Check there are no shorts between neighbouring pins.
+2. **Port, ohms to GND (pin 7 as reference):**
+   - 9 and 11 ≈ 0 Ω.
+   - Pin 3 should read a few hundred Ω to ~1 kΩ (the 620 Ω pull-down, plus 330 Ω/MCU in parallel; **INFERENCE**). This identifies pin 3 for sure.
+   - Pins 10/12 should read high, not a short.
+   - Pins 1 and 6 are high-Z-ish.
+3. **Pins 10 ↔ 12:** ≈ 0 Ω (joined on the board).
+4. **Pins 7/9/11 ↔ the extension board's mounting screw / chassis:** note the reading.
+5. **Powered, MMU disabled** (back-probe the cable at the MMU end or use pin probes; black lead on GND):
+   - Pin 5 ≈ **5 V**.
+   - Pins 10/12 ≈ **0 V**.
+   - Pin 1 ≈ **3.3 V** (UART idle high).
+   - Pin 3 ≈ **0 V**.
+   - Pin 6: record the voltage (expected ~0 V: Buddy holds reset low except during `M709 X1`).
+6. **Powered, MMU enabled in the menu:** pins 10/12 ≈ **24 V**. Pin 1 is still ~3.3 V with dips while it polls (a meter may read ~3.2 V).
+7. **`M709 X1`:** pin 6 should go to ~5 V and stay there (expected; settles which level means reset). Power-cycle afterwards. This step settles the reset polarity.
+8. **Optional:** with a genuine MMU3 connected, measure pin 3 idle (expected ≈5 V, from the AVR at 5 V) and pin 6 during normal running.
+

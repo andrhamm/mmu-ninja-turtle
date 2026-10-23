@@ -1,85 +1,178 @@
-# Prusa-Firmware-MMU
-This repository includes source code and firmware releases for the Original Prusa Multi Material Unit based on 8-bit ATMEL microcontroller.
+# Ninja Turtle
 
-The currently supported models are:
-- Original Prusa MMU3
-- Original Prusa MMU2S
+**Run a Box Turtle filament changer on a stock Prusa printer — by teaching it to speak MMU3.**
 
-## Introduction
-This is the new firmware for the Multi Material Unit (MMU).
+Ninja Turtle is a fork of Prusa's open-source [MMU3 firmware](https://github.com/prusa3d/Prusa-Firmware-MMU) (v3.0.4)
+retargeted to Armored Turtle's [Box Turtle](https://github.com/ArmoredTurtle/BoxTurtle) hardware. The printer keeps its
+unmodified Prusa firmware — no Klipper — and sees an ordinary MMU3 on its MMU port: same protocol, same version handshake,
+same error screens and Retry buttons. Behind that disguise, five Box Turtle lanes do the feeding.
 
-### Motivation
-The key motivation for developing a new firmware structure were as follows:
+> [!WARNING]
+> **Experimental. Not yet run on real hardware.** Everything below has been built and tested in simulation only.
+> This project connects third-party electronics to your printer's MMU port, which also carries 5 V and 24 V. Read
+> [Wiring](#wiring) before connecting anything. Not affiliated with, endorsed by, or supported by Prusa Research or
+> Armored Turtle. Use at your own risk.
 
-- adding a possibility of reporting the MMU's state even during running commands - the architecture of the original MM-control-01 project didn't allow to achieve this requirement
-- while being able to report the internal state of the MMU, the printer should be able to describe the error states clearly on its LCD without leaving the user to rely on some blinking LEDs
-- modular design prepared for possible future upgrades
+## Status
 
-### Firmware architecture
-The whole firmware is composed of simple state machines which run all at once - it is a kind of simple cooperative multi-tasking while not eating up any significant resources by deploying generic task switching solutions like RTOS or similar. The general rule is to avoid waiting inside these state machines, no state machine is allowed to block execution of others. That implies making separate waiting states which only check for some condition to be true before proceeding further.
+| Area | State |
+|---|---|
+| MMU3 protocol, command logic, error handling | ✅ Upstream code, unchanged; 107 upstream unit tests pass |
+| Closed-loop simulation (virtual printer ⇄ virtual MMU) | ✅ Tool changes, error → Retry recovery, 10 ms gate, 100-change soak |
+| Box Turtle hardware model (host simulation) | ✅ Tool changes and recovery pass |
+| AFC-Pro (STM32H723) firmware image | 🟡 Builds (~25 KB); lane routing, TMC2209 UART, USART link, EEPROM, watchdog written; **untested on hardware** |
+| USB bridge for testing against a real printer (QT Py SAMD21) | 🟡 Builds; untested on hardware |
+| Real printer + real Box Turtle | ⬜ Not started |
 
-The firmware is separated into 4 layers:
+Target printer: **Prusa CORE One L / L+** (any Prusa printer that drives an MMU3 should behave the same at the protocol level;
+only the CORE One L has been studied).
 
-- HAL is responsible for talking to the physical hardware, in our case an AVR processor and its peripherals, TMC2130 stepper drivers, shift registers etc.
-- modules are the components abstracted of the real hardware and/or connection. A typical example are the buttons, LEDs, Idler, Selector etc.
-- logic layer is the application logic - this layer provides the sequences and logical relations between modules thus forming the behavior of the MMU.
-- main is the top layer, it is responsible for initialization of the whole firmware and performing the main loop, where the stepping of all the automata is located.
+## How it works
 
-## Getting Started
-
-### Requirements
-
-- Python 3.6 or newer (with pip)
-
-### Cloning this repository
-
-Run `git clone https://github.com/prusa3d/Prusa-Firmware-MMU.git`.
-
-### How to prepare build env and tools
-Run `./utils/bootstrap.py`
-
-`bootstrap.py` will now download all the "missing" dependencies into the `.dependencies` folder:
-- clang-format-9.0.0-noext
-- cmake-3.22.5
-- ninja-1.12.1
-- avr-gcc-7.3.0
-
-### How to build the preliminary project so far:
-Now the process is the same as in the Buddy Firmware:
-```
-./utils/build.py
+```mermaid
+flowchart LR
+    subgraph Printer["Prusa CORE One L+ (stock firmware)"]
+        Buddy["xBuddy mainboard<br/>MMU protocol logic"] -- MODBUS --> Ext["xBuddy Extension<br/>MMU port J1"]
+    end
+    Ext -- "MMU3 protocol<br/>115200 8N1, 10 ms reply window" --> NT
+    subgraph NT["Ninja Turtle (AFC-Pro board)"]
+        Logic["Upstream MMU3 application + logic<br/>(unchanged)"] --> Model["MMU3 model → Box Turtle<br/>pulley = active lane motor<br/>selector, idler = virtual axes<br/>FINDA = hub sensor"]
+    end
+    Model --> Lanes["5 Box Turtle lanes<br/>(TMC2209 + hub)"]
 ```
 
-builds the `MMU3_<major>.<minor>.<revision>+<commit nr>`` in build/release folder
+The MMU3 firmware is cleanly layered (HAL → modules → logic). Ninja Turtle keeps the **logic and protocol untouched** and swaps
+what sits underneath:
 
-In case you'd like to build the project directly via cmake you can use an approach like this:
+| MMU3 concept | Box Turtle realization |
+|---|---|
+| Pulley motor | Whichever lane motor is active (lane = the slot the idler has "engaged") |
+| Selector, idler | Virtual axes: no hardware; homing end-stops are synthesized at the distances a real MMU3 would report |
+| FINDA sensor | Box Turtle hub sensor |
+| TMC2130 over SPI | TMC2209 over single-wire UART, one per lane |
+| Cut command | Rejected (Box Turtle has no cutter at the changer) |
+
+Because the printer runs the same protocol code it always does, the printer's MMU screens, filament-sensor handshakes,
+spool join and recovery flows work as designed. The firmware cap of **5 filaments (T0–T4)** applies.
+
+## Hardware
+
+| Part | Notes |
+|---|---|
+| Prusa CORE One L / L+ | Stock firmware ≥ 6.5.3 (MMU3 support); developed against Buddy v6.10.1 sources |
+| Box Turtle (4-lane kit) + parts for a 5th lane | e.g. [West3D kit](https://west3d.com/products/box-turtle-automated-filament-changer-multi-material-unit-by-armored-turtle) |
+| Isik's Tech **AFC-Pro** controller (STM32H723) | [West3D](https://west3d.com/products/afc-pro-8-lane-box-turtle-multi-filament-controller-pcb); replaces the kit's AFC-Lite for 5+ lanes |
+| 5× TMC2209 StepStick drivers | |
+| 74AHCT125 buffer + 1 kΩ / 10 kΩ resistors | The printer's MMU RX input needs a **5 V** driver |
+| CORE One MMU3 printer cable | Molex 2×6 to the extension board's MMU port |
+| Optional: Adafruit QT Py SAMD21 | USB bridge for testing the firmware on a computer against the real printer |
+
+### Wiring
+
+Pinout source: Prusa's published xBuddy Extension schematic (Rev 06). Full details, sources and a pre-connection multimeter checklist live in
+[`docs/afc-pro-port.md`](docs/afc-pro-port.md).
+
+| MMU port J1 | Signal | Connect to |
+|---|---|---|
+| 1 | Printer TX (3.3 V) | 1 kΩ → controller RX (AFC-Pro PB7, switch port SW14) |
+| 3 | Printer RX (needs 5 V drive) | 74AHCT125 output; input from controller TX (PB6, SW15); `/OE` from PG14 (SW20) with 10 kΩ pull-up to 5 V |
+| 7, 9, 11 | GND | Controller GND |
+| 2, 4, 5, 6, 8, 10, 12 | Internal bus, **5 V**, reset, power-loss, **24 V** | **Never connect** |
+
+The firmware keeps the 5 V buffer disabled until the printer's TX line has idled high for 100 ms (printer powered).
+Controller and printer share only ground and the two signals; each keeps its own power supply.
+
+## Quick start (development)
+
+Everything builds and runs in a dev container — the same one CI uses. You need Docker.
+
+```bash
+git clone <this repo> ninja-turtle && cd ninja-turtle
+scripts/dev ./scripts/ci        # build host tools + tests, run all tests, cross-build the AFC-Pro firmware
 ```
-mkdir build
-cd build
-cmake .. -G Ninja -DCMAKE_TOOLCHAIN_FILE=../cmake/AvrGcc.cmake
-ninja
+
+Run the closed loop yourself — Prusa's printer-side protocol code driving the virtual MMU through five tool changes:
+
+```bash
+scripts/dev tools/vprinter/loop_test.sh build/linux/tools/vmmu/vmmu build/linux/tools/vprinter/vprinter \
+    --scenario tc:5 --gate-ms 10
 ```
 
-It will produce a `MMU3_<version>.hex` file.
+```text
+lineup ok: MMU 3.0.4 after 0 ms
+T1 ok in 9643 ms
+...
+replies 5206  latency p50 0.11 ms  p99 1.08 ms  ...  link-faults 0
+PASS
+```
 
-### Development
+VS Code users can **Reopen in Container** (`.devcontainer/`). A native macOS build is possible with Homebrew GCC
+(`cmake --preset macos`); see the [developer guide](docs/development.md).
 
-The build process of this project is driven by CMake and `build.py` is just a high-level wrapper around it. As most modern IDEs support some kind of CMake integration, it should be possible to use almost any editor for development. Below are some documents describing how to setup some popular text editors.
+## Testing
 
-- Visual Studio Code
-- Vim
-- Other LSP-based IDEs (Atom, Sublime Text, ...)
+| Layer | What runs | Where |
+|---|---|---|
+| Upstream unit tests | 107 Catch2 tests of protocol, logic and modules | `ctest --preset linux` |
+| Ninja Turtle unit tests | TMC2209 datagrams vs. Klipper reference vectors | `tests/unit/nt` |
+| `vmmu` | Unmodified MMU application on the host with simulated motors/sensors, on a pty, serial device or TCP; fault injection | `tools/vmmu` |
+| `vprinter` | Prusa Buddy's printer-side `ProtocolLogic` (vendored, v6.10.1) with a simulated printer filament sensor; emulates the CORE One extension board's 10 ms reply window | `tools/vprinter` |
+| Closed loop | `vprinter` ⇄ `vmmu`: line-up, idle, tool changes, error → Retry, gate rejection; MMU3 and Box Turtle models | `ctest -R loop` |
+| Soak (manual) | 100 tool changes, 1 h idle | `ctest --preset linux -L soak` |
 
-#### Formatting
+Testing against a real printer before any Box Turtle hardware exists: flash the QT Py bridge
+(`tools/bridge/build.sh` → `.uf2`), wire it per the table above, expose it over TCP with `socat` on your computer, and point
+`vmmu` at it (`--port tcp:host.docker.internal:5555`). The printer should report the MMU as connected.
 
-All the source code in this repository is automatically formatted:
+## Building and flashing the AFC-Pro firmware
 
-- C/C++ files using [clang-format](https://clang.llvm.org/docs/ClangFormat.html),
-- Python files using [yapf](https://github.com/google/yapf),
-- and CMake files using [cmake-format](https://github.com/cheshirekow/cmake_format).
+```bash
+scripts/dev bash -c 'cmake -S ports/afcpro -B build/afcpro -G Ninja && cmake --build build/afcpro'
+```
 
-If you want to contribute, make sure to install [pre-commit](https://pre-commit.com) and then run `pre-commit install` within the repository. This makes sure that all your future commits will be formatted appropriately. Our build server automatically rejects improperly formatted pull requests.
+Flash with the STM32 ROM bootloader (hold **BOOT**, tap **RESET**, release **BOOT**), then on the host:
+
+```bash
+dfu-util -a 0 -s 0x08000000:leave -D build/afcpro/nt_afcpro.bin
+```
+
+This replaces any Klipper/Katapult image on the board; Klipper can be reflashed the same way.
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `src/` | Upstream MMU firmware + Ninja Turtle hooks (`src/nt/`, `src/hal/stm32/`, `src/pins_afcpro.h`) |
+| `ports/afcpro/` | AFC-Pro (STM32H723) firmware: HAL implementation, lane driver, TMC2209 UART, startup, linker script |
+| `tools/vmmu/`, `tools/vprinter/` | Host simulators and closed-loop test harness |
+| `tools/bridge/` | QT Py SAMD21 USB ⇄ UART bridge |
+| `tests/` | Upstream unit tests + `tests/unit/nt` |
+| `third_party/` | Vendored Prusa Buddy subset (v6.10.1) and CMSIS (STM32H7) |
+| `docs/` | [Developer guide](docs/development.md), [AFC-Pro port notes](docs/afc-pro-port.md), [upstream README](docs/upstream/PRUSA_README.md) |
+
+## Roadmap
+
+1. Measure the printer's MMU port; QT Py bridge + `vmmu` against the real printer (protocol line-up, idle soak, errors)
+2. AFC-Pro bring-up: clocks, TMC2209 links, one lane, then five
+3. Box Turtle calibration: steps/mm, currents, park/hub distances, bowden length
+4. Multi-colour prints; long soak
+
+## Known limitations
+
+- Five filaments maximum (printer firmware accepts T0–T4 only).
+- No cutter support; tip shaping comes from the slicer/printer as with a stock MMU3.
+- Box Turtle per-lane sensors, rewinders and TurtleNeck buffer are mapped but not yet used by the logic.
+- Hardware constants (lane steps/mm, motor current, sense resistor) are taken from AFC defaults and are unverified.
+
+## Acknowledgements
+
+- [Prusa Research](https://github.com/prusa3d) — MMU3 firmware and Buddy printer firmware (GPL-3.0); published electronics drawings
+- [Armored Turtle](https://github.com/ArmoredTurtle) — Box Turtle and the AFC Klipper add-on (pin maps and lane defaults)
+- [Isik's Tech](https://github.com/xbst/AFC-Pro) — AFC-Pro board and schematic
+- [Klipper](https://github.com/Klipper3d/klipper) — TMC2209 UART reference implementation
 
 ## License
 
-The firmware source code is licensed under the GNU General Public License v3.0 and the graphics and design are licensed under Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0). Fonts are licensed under different license (see [LICENSE](LICENSE.md)).
+GPL-3.0, inherited from Prusa-Firmware-MMU — see [`LICENSE.md`](LICENSE.md). Vendored third-party code keeps its own
+license (`third_party/*/`). Prusa's graphics assets remain CC BY-NC-SA as described in the
+[upstream README](docs/upstream/PRUSA_README.md).
