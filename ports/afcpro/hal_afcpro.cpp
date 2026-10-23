@@ -16,6 +16,8 @@
 #include "../../src/modules/timebase.h"
 #include "../../src/nt/virtual_axes.h"
 #include "lanes.h"
+#include "tmc_uart.h"
+#include "../../src/nt/tmc2209.h"
 
 #include <string.h>
 
@@ -74,22 +76,47 @@ void SHR16::Write(uint16_t) {}
 
 // ---------------- stepper drivers ----------------
 namespace tmc2130 {
-// TODO(phase 6b): TMC2209 single-wire UART (per-lane pins nt::LANE_UART) for currents/microstepping/StealthChop.
-bool TMC2130::Init(const MotorParams &params, const MotorCurrents &, MotorMode) {
-    initialized = true;
+namespace t9 = nt::tmc2209;
+// Only the pulley (= Box Turtle lanes) has real drivers; selector/idler are virtual (no UART traffic).
+static bool ConfigureLane(uint8_t lane, const MotorParams &params, const MotorCurrents &c, MotorMode mode) {
+    uint32_t before = 0, after = 0;
+    bool ok = nt::TmcRead(lane, t9::IFCNT, before); // IFCNT counts successful writes: proves the UART link
+    nt::TmcWrite(lane, t9::GCONF, t9::Gconf(mode == Normal));
+    nt::TmcWrite(lane, t9::CHOPCONF, t9::Chopconf(uint8_t(params.mRes), c.vSense));
+    nt::TmcWrite(lane, t9::IHOLD_IRUN, t9::IholdIrun(c.iHold, c.iRun));
+    ok = ok && nt::TmcRead(lane, t9::IFCNT, after) && uint8_t(after - before) == 3;
+    return ok;
+}
+
+bool TMC2130::Init(const MotorParams &params, const MotorCurrents &currents, MotorMode mode) {
     sg_filter_threshold = 1;
     sg_filter_counter = 1;
-    return true;
+    initialized = true;
+    if (params.axis != mm::Pulley)
+        return true;
+    nt::TmcUartInit();
+    bool ok = true;
+    for (uint8_t lane = 0; lane < nt::laneCount; ++lane)
+        ok &= ConfigureLane(lane, params, currents, mode);
+    return ok; // false -> upstream reports a TMC init error for the pulley
 }
-void TMC2130::SetMode(const MotorParams &, MotorMode) {}
+void TMC2130::SetMode(const MotorParams &params, MotorMode mode) {
+    if (params.axis == mm::Pulley)
+        for (uint8_t lane = 0; lane < nt::laneCount; ++lane)
+            nt::TmcWrite(lane, t9::GCONF, t9::Gconf(mode == Normal));
+}
 void TMC2130::SetBridgeOutput(const MotorParams &, bool) {}
-void TMC2130::SetCurrents(const MotorParams &, const MotorCurrents &) {}
+void TMC2130::SetCurrents(const MotorParams &params, const MotorCurrents &c) {
+    if (params.axis == mm::Pulley)
+        for (uint8_t lane = 0; lane < nt::laneCount; ++lane)
+            nt::TmcWrite(lane, t9::IHOLD_IRUN, t9::IholdIrun(c.iHold, c.iRun));
+}
 void TMC2130::SetSGTHRS(const MotorParams &) {}
 void TMC2130::SetEnabled(const MotorParams &params, bool en) {
     hal::shr16::shr16.SetTMCEnabled(params.idx, en);
     enabled = en;
 }
-bool TMC2130::CheckForErrors(const MotorParams &) { return true; }
+bool TMC2130::CheckForErrors(const MotorParams &) { return true; } // TODO: DRV_STATUS over UART (ot/otpw/s2g)
 uint32_t TMC2130::ReadRegister(const MotorParams &, Registers) { return 0; }
 void TMC2130::WriteRegister(const MotorParams &, Registers, uint32_t) {}
 void TMC2130::Isr(const MotorParams &params) {

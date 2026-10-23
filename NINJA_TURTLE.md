@@ -30,6 +30,7 @@ Flashing MCUs (later phases) also runs on the Mac; builds stay in the container.
 ## Changes from upstream
 - `src/hal/gpio.h`, `src/hal/usart.h`, `src/pins.h`: `#ifdef NT_STM32` dispatch to `src/hal/stm32/*` / `src/pins_afcpro.h` (AVR/host paths unchanged).
 - `src/modules/motion.cpp`: `NT_STM32` hooks for the step-timer IRQ (enable/disable/init).
+- New: `src/nt/tmc2209.*` (TMC2209 UART datagrams/register values, unit-tested against Klipper's algorithm).
 - New: `src/nt/virtual_axes.*` (synthesized selector/idler end-stops for virtual axes; used by the AFC-Pro firmware and vmmu).
 - `src/modules/permanent_storage.cpp`: `EEOFFSET` casts via `uintptr_t` (32-bit MCUs).
 - `src/application.cpp`: Cut (`K`) requests are rejected when `HasCutter()` is false (weak default `true`; Box Turtle builds/sim override).
@@ -65,6 +66,8 @@ Soak tests (excluded from `scripts/ci`): `ctest --preset linux -L soak` (100 too
   HAL in `hal_afcpro.cpp` + `src/hal/stm32/`: GPIO, SysTick timebase, TIM2 step timer (2 MHz, same contract as AVR TIMER1),
   pulley axis routed to the active lane (`nt::SelectLane`, lane = idler slot), virtual selector/idler with synthesized end-stops,
   HUB = FINDA, RAM EEPROM. CMSIS from `third_party/cmsis`.
-- Not done (needs hardware/info): printer-link USART pins, TMC2209 UART config, clocks (runs on reset HSI 64 MHz),
+- TMC2209 per-lane config over bit-banged single-wire UART (`tmc_uart.cpp`, 19200 baud): GCONF/CHOPCONF (with dedge)/IHOLD_IRUN,
+  link verified via IFCNT.
+- Not done (needs hardware/info): printer-link USART pins, Box Turtle steps/mm calibration, clocks (runs on reset HSI 64 MHz),
   flash-backed EEPROM, IWDG, LEDs, bootloader offset. Untested on hardware.
 Hardware mapping: `docs/afc-pro-port.md`.

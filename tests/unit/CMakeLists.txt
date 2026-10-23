@@ -28,3 +28,4 @@ add_subdirectory(logic)
 add_subdirectory(modules)
 
 add_subdirectory(application)
+add_subdirectory(nt) # Ninja Turtle additions
