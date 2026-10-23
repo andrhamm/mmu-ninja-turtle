@@ -241,3 +241,9 @@ else()
   enable_testing()
   add_subdirectory(tests)
 endif()
+
+# Ninja Turtle host tools
+if(NOT CMAKE_CROSSCOMPILING)
+  add_subdirectory(tools/vmmu)
+  add_subdirectory(tools/vprinter)
+endif()
