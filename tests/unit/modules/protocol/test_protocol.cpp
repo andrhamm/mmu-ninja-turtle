@@ -70,12 +70,12 @@ std::string MakeCRC(const std::string_view src) {
     uint8_t rqValue = std::stoul(src.data() + 1, nullptr, 16);
     crc = modules::crc::CRC8::CCITT_updateCX(crc, rqValue);
     crc = modules::crc::CRC8::CCITT_updateW(crc, 0);
-    if (!src[2])
+    if (src.size() <= 2) // was !src[2]: read past end of string_view
         return MakeCRC(crc); // eof
     // [2] is a space
     REQUIRE(src.size() > 3);
     crc = modules::crc::CRC8::CCITT_updateCX(crc, src[3]); // param code
-    if (!src[4])
+    if (src.size() <= 4) // was !src[4]: read past end of string_view
         return MakeCRC(crc); // eof
     REQUIRE(src.size() > 4);
     uint16_t paramValue = std::stoul(src.data() + 4, nullptr, 16);
