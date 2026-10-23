@@ -1,5 +1,6 @@
 // modules::serial implemented on a POSIX fd, plus JSONL frame logging with reply latency.
 #include "posix_serial.h"
+#include "physics.h"
 #include "serial.h"
 
 #include <deque>
@@ -130,6 +131,8 @@ namespace modules {
 namespace serial {
 
 bool WriteToUSART(const uint8_t *src, uint8_t len) {
+    if (vmmu::physics::faults.replyDelayMs)
+        usleep(vmmu::physics::faults.replyDelayMs * 1000u);
     // shortcut: blocking write is fine at these sizes (<=14 B); revisit if the fd ever backs up
     for (uint8_t written = 0; written < len;) {
         ssize_t n = write(fd, src + written, len - written);

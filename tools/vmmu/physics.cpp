@@ -25,6 +25,8 @@ bool SetFault(const char *arg) {
         *c = 0;
         faults.untilMs = atoi(c + 1);
     }
+    if (!strncmp(n, "reply-delay=", 12))
+        return (faults.replyDelayMs = atoi(n + 12)) > 0;
     if (!strcmp(n, "finda-stuck-off"))
         return faults.findaStuckOff = true;
     if (!strcmp(n, "finda-stuck-on"))

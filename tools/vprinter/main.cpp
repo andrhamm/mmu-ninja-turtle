@@ -97,7 +97,7 @@ bool ToolChange(uint8_t slot, uint32_t sensorMs, int retryButtons = 0) {
 
 int main(int argc, char **argv) {
     std::string port, scenario = "lineup";
-    uint32_t gateMs = 0, sensorMs = 300;
+    uint32_t &gateMs = vprinter::gateMs, sensorMs = 300;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--port") && i + 1 < argc)
             port = argv[++i];
@@ -136,8 +136,8 @@ int main(int argc, char **argv) {
 
     auto &L = vprinter::latency;
     size_t late = gateMs ? std::count_if(L.us.begin(), L.us.end(), [&](uint32_t v) { return v > gateMs * 1000; }) : 0;
-    printf("replies %zu  latency p50 %.2f ms  p99 %.2f ms  max %.2f ms  over-gate %zu  link-faults %d\n",
-        L.us.size(), L.Percentile(0.5) / 1000.0, L.Percentile(0.99) / 1000.0, L.Max() / 1000.0, late, linkFaults);
+    printf("replies %zu  latency p50 %.2f ms  p99 %.2f ms  max %.2f ms  over-gate %zu  gate-drops %u  link-faults %d\n",
+        L.us.size(), L.Percentile(0.5) / 1000.0, L.Percentile(0.99) / 1000.0, L.Max() / 1000.0, late, vprinter::gateDrops, linkFaults);
     // A late reply on the CORE One is answered GatewayPathUnavailable by the extension board and retried by ProtocolLogic,
     // so isolated misses are tolerated; what must hold is no link faults and a p99 inside the gate.
     ok = ok && linkFaults == 0 && (!gateMs || L.Percentile(0.99) <= gateMs * 1000);

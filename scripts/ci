@@ -3,4 +3,4 @@
 set -euo pipefail
 cmake --preset linux
 cmake --build --preset linux
-ctest --preset linux
+ctest --preset linux -LE soak

@@ -22,6 +22,11 @@ struct Latency {
 extern Latency latency;
 extern MMU2::FilamentState fsensor; ///< the printer's own filament sensor, simulated by the scenario driver
 extern bool verbose;
+/// CORE One extension-board emulation (0 = off): a reply whose next byte arrives more than gateMs after the last UART
+/// activity is abandoned (Buddy xbuddy_extension/mmu.cpp: linkLayerTimeout = 10 ms -> GatewayPathUnavailable), and RX is
+/// flushed before every transmit, so late bytes are lost and the printer has to retry.
+extern uint32_t gateMs;
+extern uint32_t gateDrops;
 uint64_t NowUs();
 bool Open(const std::string &path); ///< serial device, pty slave path, or tcp:host:port
 void WaitInput(int timeoutMs);

@@ -17,4 +17,12 @@ add_test(NAME loop::idle_30s COMMAND ${LOOP} --scenario idle:30 --gate-ms 10)
 add_test(NAME loop::toolchange_x5 COMMAND ${LOOP} --scenario tc:5 --gate-ms 10)
 add_test(NAME loop::error_retry COMMAND ${LOOP} --scenario tc-retry --gate-ms 10)
 set_tests_properties(loop::error_retry PROPERTIES ENVIRONMENT "VMMU_ARGS=--fault finda-stuck-off:6000")
+# negative test: a controller that answers in 15 ms must be rejected by the 10 ms gate
+add_test(NAME loop::gate_rejects_slow_mmu COMMAND ${LOOP} --scenario idle:5 --gate-ms 10)
+set_tests_properties(loop::gate_rejects_slow_mmu PROPERTIES ENVIRONMENT "VMMU_ARGS=--fault reply-delay=15" WILL_FAIL TRUE)
 set_tests_properties(loop::idle_30s loop::toolchange_x5 loop::error_retry PROPERTIES TIMEOUT 300)
+
+# long-running soak (not in scripts/ci): ctest --preset linux -L soak
+add_test(NAME soak::toolchange_x100 COMMAND ${LOOP} --scenario tc:100 --gate-ms 10)
+add_test(NAME soak::idle_1h COMMAND ${LOOP} --scenario idle:3600 --gate-ms 10)
+set_tests_properties(soak::toolchange_x100 soak::idle_1h PROPERTIES LABELS soak TIMEOUT 4000)

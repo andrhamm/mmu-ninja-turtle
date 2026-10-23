@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
             ++i;
         else {
             fprintf(stderr, "usage: %s [--port <device>|pty|tcp:host:port] [--log <file.jsonl>]\n"
-                            "          [--fault finda-stuck-off|finda-stuck-on|idler-home-fail|selector-home-fail]...\n", argv[0]);
+                            "          [--fault finda-stuck-off|finda-stuck-on|idler-home-fail|selector-home-fail|reply-delay=MS[:ms]]...\n", argv[0]);
             return 2;
         }
     }

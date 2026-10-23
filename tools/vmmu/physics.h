@@ -11,6 +11,7 @@ struct Faults {
     bool findaStuckOn = false; ///< FINDA never releases -> unload errors
     bool idlerHomeFail = false; ///< idler stall-guard never fires
     bool selectorHomeFail = false; ///< selector stall-guard never fires
+    uint32_t replyDelayMs = 0; ///< --fault reply-delay=N: hold every reply N ms (e.g. a slow controller)
     uint32_t untilMs = 0; ///< faults auto-clear at this simulated time (0 = never), e.g. --fault finda-stuck-off:8000
 };
 extern Faults faults;

@@ -47,4 +47,7 @@ pty/serial/TCP, with a simulated printer filament sensor. Reports reply latency 
     tools/vprinter/loop_test.sh build/linux/tools/vmmu/vmmu build/linux/tools/vprinter/vprinter --scenario tc:5 --gate-ms 10
     # scenarios: lineup | idle:SECS | tc:N | tc-retry (with VMMU_ARGS="--fault finda-stuck-off:6000")
 
-Not yet modelled: the extension board's MODBUS hop (late replies dropped -> retried) and register-write whitelist.
+`--gate-ms 10` emulates the CORE One extension board: a reply byte later than 10 ms after the last UART activity abandons
+that reply and RX is flushed before each transmit (Buddy `xbuddy_extension/mmu.cpp`). `vmmu --fault reply-delay=15` proves it
+(negative test `loop::gate_rejects_slow_mmu`). Register-write whitelist not modelled (Buddy only writes whitelisted registers).
+Soak tests (excluded from `scripts/ci`): `ctest --preset linux -L soak` (100 tool changes, 1 h idle).

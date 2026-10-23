@@ -25,10 +25,14 @@ namespace vprinter {
 MMU2::FilamentState fsensor = MMU2::FilamentState::NOT_PRESENT;
 Latency latency;
 bool verbose = false;
+uint32_t gateMs = 0;
+uint32_t gateDrops = 0;
 namespace {
 int fd = -1;
 uint64_t lastTxUs = 0;
 bool awaitingFirstByte = false;
+uint64_t lastActivityUs = 0;
+bool gateClosed = false; ///< extension board gave up on the current reply
 } // namespace
 
 uint64_t NowUs() {
@@ -88,9 +92,30 @@ void MMU2Serial::flush() {}
 void MMU2Serial::check_recovery() {}
 
 int MMU2Serial::read() {
+    using namespace vprinter;
     uint8_t c;
-    if (::read(vprinter::fd, &c, 1) != 1)
+    if (::read(fd, &c, 1) != 1) {
+        if (gateMs && !gateClosed && awaitingFirstByte && NowUs() - lastActivityUs > gateMs * 1000ull) {
+            gateClosed = true; // nothing arrived in time
+            ++gateDrops;
+        }
         return -1;
+    }
+    if (gateMs) {
+        uint64_t now = NowUs();
+        if (!gateClosed && now - lastActivityUs > gateMs * 1000ull) {
+            gateClosed = true; // byte came too late (first byte or a gap inside the reply)
+            ++gateDrops;
+        }
+        lastActivityUs = now;
+        if (gateClosed) {
+            if (awaitingFirstByte) {
+                latency.Record(now - lastTxUs);
+                awaitingFirstByte = false;
+            }
+            return -1; // extension board no longer listening for this reply
+        }
+    }
     if (vprinter::awaitingFirstByte) {
         vprinter::latency.Record(vprinter::NowUs() - vprinter::lastTxUs);
         vprinter::awaitingFirstByte = false;
@@ -99,6 +124,12 @@ int MMU2Serial::read() {
 }
 
 size_t MMU2Serial::write(const uint8_t *buffer, size_t size) {
+    if (vprinter::gateMs) { // extension board flushes RX before each transmit
+        uint8_t junk[64];
+        while (::read(vprinter::fd, junk, sizeof(junk)) > 0) {
+        }
+        vprinter::gateClosed = false;
+    }
     size_t done = 0;
     while (done < size) {
         ssize_t n = ::write(vprinter::fd, buffer + done, size - done);
@@ -107,7 +138,7 @@ size_t MMU2Serial::write(const uint8_t *buffer, size_t size) {
         else if (n < 0 && errno != EAGAIN)
             break;
     }
-    vprinter::lastTxUs = vprinter::NowUs();
+    vprinter::lastTxUs = vprinter::lastActivityUs = vprinter::NowUs();
     vprinter::awaitingFirstByte = true;
     return done;
 }
