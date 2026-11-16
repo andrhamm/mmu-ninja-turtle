@@ -1,0 +1,38 @@
+name: Bug or hardware test report
+description: Something failed in simulation, or you tried Ninja Turtle on real hardware
+body:
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Simulation / build (vmmu, vprinter, CI)
+        - Real printer via QT Py bridge + vmmu
+        - AFC-Pro + Box Turtle on a real printer
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Ninja Turtle commit
+      placeholder: git rev-parse --short HEAD
+    validations:
+      required: true
+  - type: input
+    id: printer
+    attributes:
+      label: Printer model and firmware version
+      placeholder: CORE One L+, 6.x.y (leave blank for simulation-only)
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Steps, what you expected, what the printer screen showed (error code if any).
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: vmmu/vprinter output, bridge logs, test output.
+      render: text

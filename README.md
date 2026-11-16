@@ -1,5 +1,15 @@
 # Ninja Turtle
 
+[![ci](https://github.com/andrhamm/mmu-ninja-turtle/actions/workflows/ci.yml/badge.svg)](https://github.com/andrhamm/mmu-ninja-turtle/actions/workflows/ci.yml)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE.md)
+![Hardware: untested](https://img.shields.io/badge/hardware-untested-red.svg)
+
+> [!CAUTION]
+> **Untested. This firmware has never run on a real printer, a real AFC-Pro board, or a real Box Turtle.**
+> It builds and passes its tests in simulation only. Do not connect it to a printer you are not prepared to
+> troubleshoot, and do not expect it to work yet. Hardware test reports are welcome — see
+> [CONTRIBUTING.md](CONTRIBUTING.md).
+
 **Run a Box Turtle filament changer on a stock Prusa printer — by teaching it to speak MMU3.**
 
 Ninja Turtle is a fork of Prusa's open-source [MMU3 firmware](https://github.com/prusa3d/Prusa-Firmware-MMU) (v3.0.4)
@@ -8,7 +18,6 @@ unmodified Prusa firmware — no Klipper — and sees an ordinary MMU3 on its MM
 same error screens and Retry buttons. Behind that disguise, five Box Turtle lanes do the feeding.
 
 > [!WARNING]
-> **Experimental. Not yet run on real hardware.** Everything below has been built and tested in simulation only.
 > This project connects third-party electronics to your printer's MMU port, which also carries 5 V and 24 V. Read
 > [Wiring](#wiring) before connecting anything. Not affiliated with, endorsed by, or supported by Prusa Research or
 > Armored Turtle. Use at your own risk.
@@ -87,7 +96,7 @@ Controller and printer share only ground and the two signals; each keeps its own
 Everything builds and runs in a dev container — the same one CI uses. You need Docker.
 
 ```bash
-git clone <this repo> ninja-turtle && cd ninja-turtle
+git clone https://github.com/andrhamm/mmu-ninja-turtle.git && cd mmu-ninja-turtle
 scripts/dev ./scripts/ci        # build host tools + tests, run all tests, cross-build the AFC-Pro firmware
 ```
 
@@ -176,6 +185,10 @@ This replaces any Klipper/Katapult image on the board; Klipper can be reflashed 
 - [Armored Turtle](https://github.com/ArmoredTurtle) — Box Turtle and the AFC Klipper add-on (pin maps and lane defaults)
 - [Isik's Tech](https://github.com/xbst/AFC-Pro) — AFC-Pro board and schematic
 - [Klipper](https://github.com/Klipper3d/klipper) — TMC2209 UART reference implementation
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). The most valuable contribution right now is a hardware test report.
 
 ## License
 
