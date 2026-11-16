@@ -4,7 +4,9 @@ jobs:
   build-test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # BUILD_NUMBER = commit count
       - name: Build dev image
         run: docker build -t ninja-turtle-dev -f docker/Dockerfile docker
       - name: Build + test in container

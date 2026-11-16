@@ -8,4 +8,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         socat ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Bind-mounted repo is owned by the host user; let git (build number) read it.
+RUN git config --system --add safe.directory "*"
 WORKDIR /work
